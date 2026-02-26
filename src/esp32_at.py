@@ -75,13 +75,37 @@ class ESP32AT:
 
     # ─────────── BLE ───────────
     def ble_init(self):
+        # 2 = peripheral mode
         return self.send_cmd("AT+BLEINIT=2", timeout=5000)
 
     def ble_set_name(self, name):
         return self.send_cmd(f'AT+BLENAME="{name}"')
 
+    def ble_set_adv_data(self, dev_name):
+        """Inclui o nome do dispositivo no pacote de advertising (Complete Local Name).
+        Constroi o payload manualmente via AT+BLEADVDATA usando AD type 0x09.
+        Suportado por todas as versoes do firmware ESP-AT."""
+        name_bytes = dev_name.encode()
+        # AD Structure: [length][type=0x09][name bytes]
+        adv_hex = f"{len(name_bytes) + 1:02x}09" + "".join(f"{b:02x}" for b in name_bytes)
+        return self.send_cmd(f'AT+BLEADVDATA="{adv_hex}"', timeout=3000)
+
+    def ble_set_adv_param(self, min_interval=160, max_interval=160, adv_type=0):
+        """Configura parametros de advertising.
+        adv_type 0 = connectable undirected (padrao, mais compativel).
+        Intervalo em unidades de 0.625 ms. 160 = 100 ms.
+        channel_map=7 habilita todos os 3 canais de advertising (37, 38, 39)."""
+        return self.send_cmd(
+            f'AT+BLEADVPARAM={min_interval},{max_interval},{adv_type},0,7',
+            timeout=3000
+        )
+
+    def ble_get_addr(self):
+        """Retorna o endereco MAC BLE do dispositivo."""
+        return self.send_cmd("AT+BLEADDR?")
+
     def ble_start_advertising(self):
-        return self.send_cmd("AT+BLEADVSTART")
+        return self.send_cmd("AT+BLEADVSTART", timeout=3000)
 
     def ble_stop_advertising(self):
         return self.send_cmd("AT+BLEADVSTOP")
