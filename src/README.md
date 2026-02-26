@@ -28,6 +28,16 @@ print(esp.send_cmd("AT"))  # OK
 2. Define o nome como `"Pico2-BLE"`
 3. Inicia advertising e aguarda conexões
 
+### `ble_web_test` — Exemplo BLE Peripheral com uma página web
+
+Conteúdo desta pasta: exemplo completo que integra o `Pico 2` (MicroPython) e uma
+interface Web Bluetooth para controlar o LED do Pico via ESP32-C3 (firmware AT).
+
+- `main_ble_led.py`: script MicroPython que configura o ESP32 (advertising + GATT),
+	interpreta comandos recebidos via GATT Write e envia confirmações via Notify.
+- `index.html`: página web (HTML/CSS/JS) que conecta ao ESP32 via Web Bluetooth,
+	descobre os serviços/características automaticamente e envia comandos.
+    
 ### `debug_uart.py` — Debug da Comunicação
 
 Script auxiliar para diagnosticar problemas de comunicação UART entre o Pico 2 e o ESP32-C3.
