@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pico2 BLE — Controle de LED</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --border:    #2e3147;
+      --accent:    #7c6ff7;
+      --accent-h:  #9b8fff;
+      --on:        #22c55e;
+      --on-h:      #16a34a;
+      --off:       #ef4444;
+      --off-h:     #b91c1c;
+      --text:      #e2e4f0;
+      --muted:     #6b7280;
+      --radius:    14px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      gap: 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    h1 span { color: var(--accent); }
+
+    /* ── Status bar ── */
+    #status-bar {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: .45rem 1.1rem;
+      font-size: .85rem;
+      color: var(--muted);
+      transition: border-color .3s;
+    }
+    #status-bar.connected { border-color: var(--on); color: var(--on); }
+    #status-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background .3s;
+      flex-shrink: 0;
+    }
+    #status-bar.connected #status-dot { background: var(--on); animation: pulse 2s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .4; }
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .card-title {
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── LED visual ── */
+    #led-visual {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .75rem;
+    }
+    #led-bulb {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 38%, #3a3a50, #1a1a2e);
+      border: 3px solid var(--border);
+      transition: box-shadow .4s, background .4s, border-color .4s;
+      position: relative;
+    }
+    #led-bulb.on {
+      background: radial-gradient(circle at 35% 38%, #fffde7, #facc15);
+      border-color: #fbbf24;
+      box-shadow: 0 0 28px 10px rgba(250, 204, 21, .45),
+                  0 0 60px 20px rgba(250, 204, 21, .2);
+    }
+    #led-label {
+      font-size: .8rem;
+      color: var(--muted);
+      font-weight: 500;
+      letter-spacing: .05em;
+    }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      font-size: .95rem;
+      font-weight: 600;
+      padding: .8rem 1rem;
+      transition: filter .15s, transform .1s, opacity .2s;
+      letter-spacing: .01em;
+    }
+    button:active { transform: scale(.97); }
+    button:disabled { opacity: .35; cursor: not-allowed; }
+
+    #btn-connect {
+      grid-column: 1 / -1;
+      background: var(--accent);
+      color: #fff;
+    }
+    #btn-connect:hover:not(:disabled) { filter: brightness(1.12); }
+    #btn-connect.connected {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    #btn-on  { background: var(--on);  color: #fff; }
+    #btn-off { background: var(--off); color: #fff; }
+    #btn-on:hover:not(:disabled)  { filter: brightness(1.1); }
+    #btn-off:hover:not(:disabled) { filter: brightness(1.1); }
+
+    /* ── Log ── */
+    #log {
+      background: #0a0c12;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .75rem;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: .78rem;
+      line-height: 1.6;
+      height: 170px;
+      overflow-y: auto;
+      color: #a5aabb;
+    }
+    #log .ts  { color: #4b516a; }
+    #log .ok  { color: var(--on); }
+    #log .err { color: var(--off); }
+    #log .inf { color: var(--accent); }
+    #log .cmd { color: #facc15; }
+
+    /* ── Notice ── */
+    .notice {
+      font-size: .78rem;
+      color: var(--muted);
+      text-align: center;
+      max-width: 420px;
+      line-height: 1.5;
+    }
+    .notice a { color: var(--accent); text-decoration: none; }
+    .notice a:hover { text-decoration: underline; }
+
+    /* ── UUID fields ── */
+    .uuid-group { display: flex; flex-direction: column; gap: .5rem; }
+    .uuid-row   { display: flex; flex-direction: column; gap: .25rem; }
+    .uuid-row label { font-size: .72rem; color: var(--muted); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+    .uuid-row input {
+      background: #0a0c12;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: .78rem;
+      padding: .45rem .7rem;
+      outline: none;
+      cursor: default;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Pico2 <span>BLE</span> — Controle LED</h1>
+
+  <div id="status-bar">
+    <div id="status-dot"></div>
+    <span id="status-text">Desconectado</span>
+  </div>
+
+  <div class="card">
+    <span class="card-title">Dispositivo</span>
+
+    <div id="led-visual">
+      <div id="led-bulb"></div>
+      <span id="led-label">LED DESCONHECIDO</span>
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-connect">🔵 Conectar via Bluetooth</button>
+      <button id="btn-on"  disabled>💡 Ligar LED</button>
+      <button id="btn-off" disabled>🌑 Desligar LED</button>
+    </div>
+  </div>
+
+  <!-- Card: UUIDs descobertos automaticamente (somente leitura) -->
+  <div class="card">
+    <span class="card-title">⚙️ Configuração GATT <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#4b516a">— preenchido ao conectar</span></span>
+    <div class="uuid-group">
+      <div class="uuid-row">
+        <label>Service UUID</label>
+        <input id="uuid-service" value="—" readonly tabindex="-1" />
+      </div>
+      <div class="uuid-row">
+        <label>Write Characteristic UUID</label>
+        <input id="uuid-write" value="—" readonly tabindex="-1" />
+      </div>
+      <div class="uuid-row">
+        <label>Notify Characteristic UUID</label>
+        <input id="uuid-notify" value="—" readonly tabindex="-1" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <span class="card-title">Log de eventos</span>
+    <div id="log"><span class="inf">Aguardando conexão...</span></div>
+  </div>
+
+  <p class="notice">
+    ⚠️ A Web Bluetooth API exige <strong>HTTPS</strong> ou <code>localhost</code>.<br>
+    Para testar localmente, execute:<br>
+    <code>python -m http.server 8080</code>
+    e acesse
+    <a href="http://localhost:8080" target="_blank">http://localhost:8080</a>
+  </p>
+
+  <script>
+    // UUIDs candidatos — cobre toda a tabela padrao do firmware ESP-AT
+    const SCAN_UUIDS = [
+      '00001800-0000-1000-8000-00805f9b34fb',
+      '00001801-0000-1000-8000-00805f9b34fb',
+      '0000a002-0000-1000-8000-00805f9b34fb',
+      '0000a003-0000-1000-8000-00805f9b34fb',
+      '0000c300-0000-1000-8000-00805f9b34fb',
+      '0000c301-0000-1000-8000-00805f9b34fb',
+      '0000c302-0000-1000-8000-00805f9b34fb',
+      '0000c303-0000-1000-8000-00805f9b34fb',
+      '0000c304-0000-1000-8000-00805f9b34fb',
+      '0000c305-0000-1000-8000-00805f9b34fb',
+      '0000c306-0000-1000-8000-00805f9b34fb',
+      '0000c307-0000-1000-8000-00805f9b34fb',
+    ];
+
+    let device, server, writeChar, notifyChar;
+
+    const enc = new TextEncoder();
+    const dec = new TextDecoder();
+
+    // ── Elementos
+    const btnConnect = document.getElementById('btn-connect');
+    const btnOn      = document.getElementById('btn-on');
+    const btnOff     = document.getElementById('btn-off');
+    const statusBar  = document.getElementById('status-bar');
+    const statusText = document.getElementById('status-text');
+    const bulb       = document.getElementById('led-bulb');
+    const ledLabel   = document.getElementById('led-label');
+    const logEl      = document.getElementById('log');
+
+    function setUUIDFields(service, write, notify) {
+      document.getElementById('uuid-service').value = service ?? '—';
+      document.getElementById('uuid-write').value   = write   ?? '—';
+      document.getElementById('uuid-notify').value  = notify  ?? '—';
+    }
+
+    // ── Log
+    function log(msg, cls = '') {
+      const now = new Date().toLocaleTimeString('pt-br');
+      const line = document.createElement('div');
+      line.innerHTML = `<span class="ts">[${now}]</span> <span class="${cls}">${msg}</span>`;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // ── Status UI
+    function setConnected(yes) {
+      statusBar.className = yes ? 'connected' : '';
+      statusText.textContent = yes ? `Conectado — ${device?.name ?? ''}` : 'Desconectado';
+      btnConnect.textContent = yes ? '🔴 Desconectar' : '🔵 Conectar via Bluetooth';
+      btnConnect.className = yes ? 'connected' : '';
+      btnOn.disabled  = !yes;
+      btnOff.disabled = !yes;
+    }
+
+    // ── LED visual
+    function setLed(on, known = true) {
+      bulb.className = on ? 'on' : '';
+      ledLabel.textContent = !known ? 'LED DESCONHECIDO' : (on ? 'LED LIGADO' : 'LED DESLIGADO');
+    }
+
+    // ── Notificacoes recebidas do Pico
+    function onNotification(event) {
+      const msg = dec.decode(event.target.value);
+      if (msg === 'CONNECTED') {
+        log('✅ Pico confirmou conexão BLE!', 'ok');
+        return;
+      }
+      log(`← ${msg}`, msg.startsWith('OK') ? 'ok' : 'err');
+      if (msg === 'OK:ON')  setLed(true);
+      if (msg === 'OK:OFF') setLed(false);
+    }
+
+    // ── Conectar (com auto-descoberta de UUIDs embutida)
+    async function connect() {
+      if (device?.gatt?.connected) {
+        device.gatt.disconnect();
+        return;
+      }
+
+      if (!navigator.bluetooth) {
+        log('Web Bluetooth nao disponivel. Use Chrome com HTTPS ou localhost.', 'err');
+        return;
+      }
+
+      try {
+        log('Buscando dispositivo BLE...', 'inf');
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ name: 'Pico2-BLE' }],
+          optionalServices: SCAN_UUIDS
+        });
+
+        device.addEventListener('gattserverdisconnected', () => {
+          log('Dispositivo desconectado.', 'err');
+          setConnected(false);
+          setLed(false, false);
+          setUUIDFields(null, null, null);
+          writeChar = null;
+          notifyChar = null;
+        });
+
+        log('Conectando ao servidor GATT...', 'inf');
+        server = await device.gatt.connect();
+
+        log('Descobrindo serviços...', 'inf');
+        const services = await server.getPrimaryServices();
+
+        if (services.length === 0) {
+          log('Nenhum serviço GATT encontrado. Verifique se o Pico está rodando main_ble_led.py.', 'err');
+          device.gatt.disconnect();
+          return;
+        }
+
+        let foundService = null, foundWrite = null, foundNotify = null;
+
+        for (const svc of services) {
+          try {
+            const chars = await svc.getCharacteristics();
+            for (const c of chars) {
+              if (!foundWrite  && c.properties.write)  { foundWrite  = c; foundService = svc; }
+              if (!foundNotify && c.properties.notify) { foundNotify = c; foundService = svc; }
+            }
+          } catch (_) {}
+          if (foundWrite && foundNotify) break;
+        }
+
+        if (!foundWrite || !foundNotify) {
+          log('⚠️ Não encontrou par write+notify. Verifique o firmware AT do ESP32.', 'err');
+          device.gatt.disconnect();
+          return;
+        }
+
+        writeChar  = foundWrite;
+        notifyChar = foundNotify;
+
+        // Exibe os UUIDs descobertos nos campos
+        setUUIDFields(foundService.uuid, foundWrite.uuid, foundNotify.uuid);
+
+        await notifyChar.startNotifications();
+        notifyChar.addEventListener('characteristicvaluechanged', onNotification);
+
+        setConnected(true);
+        setLed(false, false);
+        log('Conectado com sucesso!', 'ok');
+
+      } catch (err) {
+        log(`Erro: ${err.message}`, 'err');
+        console.error(err);
+      }
+    }
+
+    // ── Enviar comando
+    async function sendCmd(cmd) {
+      if (!writeChar) { log('Nao conectado.', 'err'); return; }
+      try {
+        log(`→ ${cmd === '1' ? '1 (Ligar)' : '0 (Desligar)'}`, 'cmd');
+        await writeChar.writeValue(enc.encode(cmd));
+      } catch (err) {
+        log(`Erro ao enviar: ${err.message}`, 'err');
+      }
+    }
+
+    // ── Eventos
+    btnConnect.addEventListener('click', connect);
+    btnOn .addEventListener('click', () => sendCmd('1'));
+    btnOff.addEventListener('click', () => sendCmd('0'));
+  </script>
+</body>
+</html>
