@@ -6,22 +6,6 @@ O ESP32-C3 roda o firmware oficial **ESP-AT da Espressif** (v4.1.1.0) e funciona
 
 ---
 
-## 📁 Estrutura do Projeto
-
-```
-ESP32-C3_AT-Communication_Pico2/
-├── .vscode/             # Configurações do VS Code
-├── .micropico           # Configuração do MicroPico (extensão VS Code)
-├── esp32_at.py          # Classe principal — driver AT para o ESP32-C3
-├── main_wifi.py         # Exemplo: conexão Wi-Fi + requisição HTTP
-├── main_ble.py          # Exemplo: BLE Peripheral (advertising)
-├── debug_uart.py        # Script de debug para testar a comunicação UART
-├── pinout.jpg           # Imagem do pinout de referência
-└── README.md
-```
-
----
-
 ## 🔧 Hardware Necessário
 
 | Componente | Descrição |
@@ -44,6 +28,8 @@ ESP32-C3_AT-Communication_Pico2/
   │ 3V3(OUT) ────────────────  3V3            │
   └──────────┘                └──────────────┘
 ```
+
+![Pinout](pinout.jpg)
 
 | Pico 2 | ESP32-C3-Mini-1 | Função |
 |---|---|---|
@@ -94,42 +80,6 @@ import main_ble
 
 ---
 
-## 📄 Descrição dos Arquivos
-
-### `esp32_at.py` — Driver AT
-
-Classe `ESP32AT` que encapsula toda a comunicação AT com o ESP32-C3:
-
-- Reset automático via hardware (pino EN) na inicialização
-- Envio de comandos AT com timeout e resposta esperada configuráveis
-- Limpeza automática do buffer UART antes de cada comando
-- Métodos prontos para Wi-Fi, HTTP e BLE
-
-```python
-from esp32_at import ESP32AT
-
-esp = ESP32AT(uart_id=1, tx=4, rx=5, reset_pin=6)
-print(esp.send_cmd("AT"))  # OK
-```
-
-### `main_wifi.py` — Exemplo Wi-Fi + HTTP
-
-1. Conecta a uma rede Wi-Fi
-2. Obtém o IP local
-3. Faz uma requisição HTTP GET para `api.ipify.org` (retorna o IP público)
-
-### `main_ble.py` — Exemplo BLE Peripheral
-
-1. Inicializa o BLE no modo Peripheral
-2. Define o nome como `"Pico2-BLE"`
-3. Inicia advertising e aguarda conexões
-
-### `debug_uart.py` — Debug da Comunicação
-
-Script auxiliar para diagnosticar problemas de comunicação UART entre o Pico 2 e o ESP32-C3.
-
----
-
 ## 📌 Comandos AT Úteis
 
 | Comando | Descrição |
@@ -162,4 +112,24 @@ Script auxiliar para diagnosticar problemas de comunicação UART entre o Pico 2
 
 ## 📝 Licença
 
-Este projeto é livre para uso educacional e pessoal.
+MIT License
+
+Copyright (c) 2026 Carlo Terzaghi Tuck Schneider
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
