@@ -138,6 +138,216 @@ class ESP32AT:
         """Desconecta e limpa a sessao MQTT."""
         return self.send_cmd("AT+MQTTCLEAN=0", timeout=5000)
 
+    def mqtt_state(self):
+        """Consulta estado atual da conexao MQTT (AT+MQTTCONN?)."""
+        return self.send_cmd("AT+MQTTCONN?", timeout=3000)
+
+    def mqtt_sni(self, sni):
+        """Define MQTT Server Name Indication (SNI) para TLS.
+        Obrigatorio para AWS IoT Core. Deve ser chamado APOS AT+MQTTUSERCFG."""
+        return self.send_cmd(
+            f'AT+MQTTSNI=0,"{sni}"',
+            timeout=3000
+        )
+
+    def mqtt_alpn(self, *alpns):
+        """Define MQTT ALPN (Application Layer Protocol Negotiation).
+        Deve ser chamado APOS AT+MQTTUSERCFG.
+        Ex: mqtt_alpn("x-amzn-mqtt-ca") para AWS IoT porta 443."""
+        if not alpns:
+            return self.send_cmd("AT+MQTTALPN=0,0", timeout=3000)
+        alpn_str = ",".join(f'"{a}"' for a in alpns)
+        return self.send_cmd(
+            f'AT+MQTTALPN=0,{len(alpns)},{alpn_str}',
+            timeout=3000
+        )
+
+    # ─────────── SNTP ───────────
+    def sntp_config(self, enable=1, timezone=0, server1="pool.ntp.org",
+                    server2="time.nist.gov"):
+        """Configura sincronizacao SNTP. Necessario para TLS (validacao de certificados)."""
+        return self.send_cmd(
+            f'AT+CIPSNTPCFG={enable},{timezone},"{server1}","{server2}"',
+            timeout=3000
+        )
+
+    def sntp_time(self):
+        """Retorna a hora atual sincronizada via SNTP."""
+        return self.send_cmd("AT+CIPSNTPTIME?", timeout=3000)
+
+    # ─────────── System ───────────
+    def enable_syslog(self):
+        """Habilita log AT detalhado (mostra codigos de erro do TLS/MQTT)."""
+        return self.send_cmd("AT+SYSLOG=1", timeout=1000)
+
+    # ─────────── Manufacturing NVS (certificados) ───────────
+    def sysmfg_list(self):
+        """Lista namespaces na particao mfg_nvs (AT+SYSMFG?)."""
+        return self.send_cmd("AT+SYSMFG?", timeout=2000)
+
+    def sysmfg_erase(self, namespace, key=None):
+        """Apaga dados da mfg_nvs via AT+SYSMFG.
+        Se key=None, apaga todas as chaves do namespace.
+        Se key eh fornecida, apaga apenas aquela chave.
+        Retorna True se apagou com sucesso (ou se ja nao existia)."""
+        if key:
+            resp = self.send_cmd(
+                f'AT+SYSMFG=0,"{namespace}","{key}"', timeout=3000)
+        else:
+            resp = self.send_cmd(
+                f'AT+SYSMFG=0,"{namespace}"', timeout=3000)
+        return "ERROR" not in resp
+
+    def sysmfg_write(self, namespace, key, data, nvs_type=8):
+        """Grava dados na mfg_nvs via AT+SYSMFG.
+        nvs_type: 1-6=integers, 7=string, 8=binary (blob).
+        Retorna True se gravou com sucesso."""
+        length = len(data)
+        # Limpa buffer UART
+        time.sleep_ms(200)
+        while self.uart.any():
+            self.uart.read()
+        time.sleep_ms(100)
+        while self.uart.any():
+            self.uart.read()
+
+        cmd = f'AT+SYSMFG=2,"{namespace}","{key}",{nvs_type},{length}'
+        self.uart.write((cmd + "\r\n").encode())
+
+        # Espera prompt '>'
+        buf = b""
+        t0 = time.ticks_ms()
+        got_prompt = False
+        while time.ticks_diff(time.ticks_ms(), t0) < 8000:
+            if self.uart.any():
+                chunk = self.uart.read()
+                if chunk:
+                    buf += chunk
+                if b">" in buf:
+                    got_prompt = True
+                    break
+                if b"ERROR" in buf:
+                    break
+            time.sleep_ms(10)
+
+        if not got_prompt:
+            return False
+
+        time.sleep_ms(100)
+
+        # Envia dados em chunks
+        CHUNK = 64
+        for i in range(0, length, CHUNK):
+            self.uart.write(data[i:i+CHUNK])
+            time.sleep_ms(20)
+
+        time.sleep_ms(500)
+
+        # Espera confirmacao
+        resp_buf = b""
+        t0 = time.ticks_ms()
+        while time.ticks_diff(time.ticks_ms(), t0) < 15000:
+            if self.uart.any():
+                chunk = self.uart.read()
+                if chunk:
+                    resp_buf += chunk
+                if b"OK" in resp_buf:
+                    return True
+                if b"ERROR" in resp_buf:
+                    return False
+            time.sleep_ms(10)
+
+        return False
+
+    def sysmfg_read(self, namespace, key, offset=0, length=64):
+        """Le dados da mfg_nvs via AT+SYSMFG (operacao 1).
+        Retorna os bytes lidos ou None se falhou."""
+        resp = self.send_cmd(
+            f'AT+SYSMFG=1,"{namespace}","{key}",{offset},{length}',
+            timeout=3000
+        )
+        if "ERROR" in resp:
+            return None
+        return resp
+
+    def sysmfg_verify(self, namespace, key):
+        """Verifica se um certificado existe na mfg_nvs tentando ler 1 byte."""
+        resp = self.send_cmd(
+            f'AT+SYSMFG=1,"{namespace}","{key}",0,1',
+            timeout=3000
+        )
+        return "ERROR" not in resp
+
+    # ─────────── Flash Partitions (PKI) ───────────
+    def sysflash_list(self):
+        """Lista particoes de dados na flash (AT+SYSFLASH?).
+        Retorna resposta com particoes disponiveis."""
+        return self.send_cmd("AT+SYSFLASH?", timeout=3000)
+
+    def sysflash_write(self, partition, data, offset=0):
+        """Grava dados numa particao flash via AT+SYSFLASH.
+        Usado para gravar certificados PKI (mqtt_ca, mqtt_cert, mqtt_key).
+        O modulo MQTT do ESP-AT le certs das particoes PKI na flash,
+        nao do mfg_nvs. Retorna True se gravou com sucesso."""
+        length = len(data)
+        # Limpa buffer UART
+        time.sleep_ms(200)
+        while self.uart.any():
+            self.uart.read()
+        time.sleep_ms(100)
+        while self.uart.any():
+            self.uart.read()
+
+        cmd = f'AT+SYSFLASH=1,"{partition}",{offset},{length}'
+        self.uart.write((cmd + "\r\n").encode())
+
+        # Espera prompt '>'
+        buf = b""
+        t0 = time.ticks_ms()
+        got_prompt = False
+        while time.ticks_diff(time.ticks_ms(), t0) < 8000:
+            if self.uart.any():
+                chunk = self.uart.read()
+                if chunk:
+                    buf += chunk
+                if b">" in buf:
+                    got_prompt = True
+                    break
+                if b"ERROR" in buf:
+                    print(f"  [SYSFLASH] Erro: {buf.decode('utf-8', 'replace').strip()}")
+                    break
+            time.sleep_ms(10)
+
+        if not got_prompt:
+            return False
+
+        time.sleep_ms(100)
+
+        # Envia dados em chunks
+        CHUNK = 64
+        for i in range(0, length, CHUNK):
+            self.uart.write(data[i:i+CHUNK])
+            time.sleep_ms(20)
+
+        time.sleep_ms(500)
+
+        # Espera confirmacao
+        resp_buf = b""
+        t0 = time.ticks_ms()
+        while time.ticks_diff(time.ticks_ms(), t0) < 15000:
+            if self.uart.any():
+                chunk = self.uart.read()
+                if chunk:
+                    resp_buf += chunk
+                if b"OK" in resp_buf:
+                    return True
+                if b"ERROR" in resp_buf:
+                    print(f"  [SYSFLASH] Resp: {resp_buf.decode('utf-8', 'replace').strip()}")
+                    return False
+            time.sleep_ms(10)
+
+        return False
+
     # ─────────── BLE ───────────
     def ble_init(self):
         # 2 = peripheral mode
