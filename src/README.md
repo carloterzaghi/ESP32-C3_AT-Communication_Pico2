@@ -7,7 +7,8 @@ Classe `ESP32AT` que encapsula toda a comunicação AT com o ESP32-C3:
 - Reset automático via hardware (pino EN) na inicialização
 - Envio de comandos AT com timeout e resposta esperada configuráveis
 - Limpeza automática do buffer UART antes de cada comando
-- Métodos prontos para Wi-Fi, HTTP e BLE
+- Métodos prontos para Wi-Fi, MQTT, SNTP e BLE
+- Escrita/leitura/apagamento de dados na partição `mfg_nvs` via `AT+SYSMFG`
 
 ```python
 from esp32_at import ESP32AT
@@ -15,6 +16,15 @@ from esp32_at import ESP32AT
 esp = ESP32AT(uart_id=1, tx=4, rx=5, reset_pin=6)
 print(esp.send_cmd("AT"))  # OK
 ```
+
+**Métodos de NVS para certificados:**
+
+| Método | Descrição |
+|---|---|
+| `sysmfg_write(ns, key, data)` | Grava blob binário (tipo 8) na `mfg_nvs` |
+| `sysmfg_read(ns, key, offset, length)` | Lê dados da `mfg_nvs` |
+| `sysmfg_erase(ns, key=None)` | Apaga uma chave ou namespace inteiro |
+| `sysmfg_verify(ns, key)` | Verifica se uma chave existe |
 
 ### `main_wifi.py` — Exemplo Wi-Fi + HTTP
 
@@ -30,37 +40,53 @@ print(esp.send_cmd("AT"))  # OK
 
 ### `ble_web_test` — Exemplo BLE Peripheral com uma página web
 
-Conteúdo desta pasta: exemplo completo que integra o `Pico 2` (MicroPython) e uma
-interface Web Bluetooth para controlar o LED do Pico via ESP32-C3 (firmware AT).
+Exemplo completo que integra o Pico 2 (MicroPython) e uma interface Web Bluetooth
+para controlar o LED do Pico via ESP32-C3 (firmware AT).
 
 - `main_ble_led.py`: script MicroPython que configura o ESP32 (advertising + GATT),
 	interpreta comandos recebidos via GATT Write e envia confirmações via Notify.
 - `index.html`: página web (HTML/CSS/JS) que conecta ao ESP32 via Web Bluetooth,
 	descobre os serviços/características automaticamente e envia comandos.
 
-### `mqtt_test` — Exemplo MQTT via ESP32-C3 AT Commands
+### `mqtt_test` — MQTT via ESP32-C3 AT Commands (AWS IoT Core)
 
-Conteúdo desta pasta: teste de publicação MQTT usando os comandos AT nativos do
-firmware ESP-AT do ESP32-C3 (sem necessidade de biblioteca umqtt no Pico).
+Teste de publicação MQTT com TLS mútuo usando os comandos AT nativos do firmware
+ESP-AT do ESP32-C3 — sem necessidade de biblioteca `umqtt` nem `ssl` no Pico.
 
-- `umqtt_test.py`: script MicroPython que conecta ao Wi-Fi via ESP32, configura o
-	cliente MQTT (`AT+MQTTUSERCFG`), conecta ao broker (`AT+MQTTCONN`) e publica
-	um payload binário via `AT+MQTTPUBRAW`.
-- `main_wifi.py`: código de referência do projeto original (Pico W nativo) —
-	útil como comparação mas **não é usado** neste teste.
-- `umqtt/`: biblioteca umqtt original de referência (não utilizada pelo ESP32-AT).
-- `certs/`: certificados `.der` para AWS IoT Core (devem ser pré-gravados na
-	partição PKI do ESP32 para uso com `MQTT_SCHEME=5`).
+- `umqtt_test.py`: conecta ao Wi-Fi, sincroniza o relógio via SNTP, grava os
+  certificados no ESP32 via `AT+SYSMFG`, configura o cliente MQTT com
+  `AT+MQTTUSERCFG` (scheme=5 = TLS mútuo), e publica um payload binário via
+  `AT+MQTTPUBRAW`.
+- `load_certs.py`: script isolado para gravar apenas os certificados (útil para
+  re-gravar sem executar o fluxo MQTT completo).
+- `certs/`: certificados `.der` para AWS IoT Core:
+  - `AmazonRootCA1.der` — CA raiz da Amazon
+  - `device.der` — certificado do dispositivo
+  - `privace.key.der` — chave privada do dispositivo
+- `umqtt/`: implementação alternativa usando MicroPython nativo (Pico W com
+  `ssl.wrap_socket`) — referência, não usada com ESP32-C3.
 
-**Uso rápido (broker público, sem TLS):**
-1. Edite `WIFI_SSID` e `WIFI_PASSWORD` em `umqtt_test.py`
-2. Copie `esp32_at.py` e `umqtt_test.py` para o Pico 2
-3. Execute — o payload será publicado em `pico2/sensor/data` no `test.mosquitto.org`
+**Como os certificados são armazenados:**
 
-**Uso com AWS IoT Core (TLS mútuo):**
-1. Grave os certificados na flash do ESP32 (`AT+SYSFLASH`)
-2. Altere: `MQTT_SCHEME=5`, `MQTT_PORT=8883`, `MQTT_HOST="seu-endpoint.iot.region.amazonaws.com"`
-3. Execute normalmente
+O firmware ESP-AT lê os certificados MQTT da partição `mfg_nvs` em namespaces
+dedicados. A convenção de chaves segue o padrão do build system do ESP-AT
+([`mfg_nvs.py`](https://github.com/espressif/esp-at/blob/master/components/customized_partitions/generation_tools/mfg_nvs.py)):
+
+| Namespace NVS | Chave NVS | Conteúdo |
+|---|---|---|
+| `mqtt_ca` | `mqtt_ca` | CA do servidor (AmazonRootCA1) |
+| `mqtt_cert` | `mqtt_cert` | Certificado do cliente |
+| `mqtt_key` | `mqtt_key` | Chave privada do cliente |
+
+> ⚠️ A chave NVS é igual ao nome do namespace (sem sufixo `.0`). Isso é diferente
+> dos namespaces SSL (`client_cert.0`, `client_cert.1`) que suportam múltiplos
+> conjuntos.
+
+**Uso com AWS IoT Core:**
+1. Copie os arquivos `.der` para a pasta `certs/` no filesystem do Pico
+2. Edite `WIFI_SSID`, `WIFI_PASSWORD`, `AWS_HOST`, `MQTT_CLIENT_ID` e `MQTT_TOPIC`
+3. Copie `esp32_at.py`, `umqtt_test.py` e a pasta `certs/` para o Pico 2
+4. Execute `umqtt_test.py` — o script grava os certificados automaticamente
 
 ### `debug_uart.py` — Debug da Comunicação
 

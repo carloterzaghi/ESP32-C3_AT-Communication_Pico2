@@ -78,6 +78,21 @@ import main_wifi
 import main_ble
 ```
 
+**Teste MQTT com AWS IoT Core (TLS mútuo):**
+
+1. Copie os certificados `.der` para a pasta `certs/` no filesystem do Pico.
+2. Edite os parâmetros em `src/mqtt_test/umqtt_test.py`:
+   ```python
+   WIFI_SSID     = "sua_rede"
+   WIFI_PASSWORD = "sua_senha"
+   AWS_HOST      = "abc123-ats.iot.us-east-1.amazonaws.com"
+   MQTT_CLIENT_ID = "pico2_device"
+   MQTT_TOPIC    = "seu/topico"
+   ```
+3. Copie para o Pico 2: `esp32_at.py`, `umqtt_test.py` e a pasta `certs/`.
+4. Execute — o script grava os certificados automaticamente na `mfg_nvs` do ESP32
+   via `AT+SYSMFG` e conecta ao AWS IoT Core com TLS mútuo (`scheme=5`).
+
 ---
 
 ## 📌 Comandos AT Úteis
