@@ -29,12 +29,12 @@ WIFI_PASSWORD = "SUA_SENHA"
 # ── MQTT Broker ──
 # AWS IoT Core — TLS mutual (certificados pre-gravados no ESP32):
 MQTT_SCHEME    = 5                        # 1=TCP, 2=TLS sem cert, 5=TLS mutual (AWS IoT)
-MQTT_HOST      = "a3p8fp5lk2prw7-ats.iot.us-west-2.amazonaws.com"
+MQTT_HOST      = "yourlink.amazonaws.com"
 MQTT_PORT      = 8883                     # 1883=TCP, 8883=TLS
 MQTT_CLIENT_ID = "pico2_esp32_test"
 MQTT_USERNAME  = ""                       # Vazio se nao precisar
 MQTT_PASSWORD  = ""
-MQTT_TOPIC     = "$aws/rules/Prd_IoT_EF_BasicIngestToFirehose"
+MQTT_TOPIC     = "your_topic"
 MQTT_QOS       = 1
 MQTT_KEEPALIVE = 120
 
