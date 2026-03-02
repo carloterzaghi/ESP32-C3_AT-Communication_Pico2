@@ -38,11 +38,23 @@ import time
 WIFI_SSID     = "SEU_SSID"
 WIFI_PASSWORD = "SUA_SENHA"
 
+<<<<<<< HEAD
 # ── AWS IoT Core ──
 AWS_HOST       = "SEU_HOST.iot.REGIAO.amazonaws.com"  # Ex: "abc123def456-ats.iot.us-east-1.amazonaws.com"
 AWS_PORT       = 8883
 MQTT_CLIENT_ID = "pico2_esp32_test"
 MQTT_TOPIC     = "SEU_TOPICO"  # Ex: "test/pico2"
+=======
+# ── MQTT Broker ──
+# AWS IoT Core — TLS mutual (certificados pre-gravados no ESP32):
+MQTT_SCHEME    = 5                        # 1=TCP, 2=TLS sem cert, 5=TLS mutual (AWS IoT)
+MQTT_HOST      = "yourlink.amazonaws.com"
+MQTT_PORT      = 8883                     # 1883=TCP, 8883=TLS
+MQTT_CLIENT_ID = "pico2_esp32_test"
+MQTT_USERNAME  = ""                       # Vazio se nao precisar
+MQTT_PASSWORD  = ""
+MQTT_TOPIC     = "your_topic"
+>>>>>>> 910a5f050e908c1eef35445548a9189c0e429c1d
 MQTT_QOS       = 1
 MQTT_KEEPALIVE = 120
 
@@ -352,5 +364,17 @@ def main():
     print("\nTeste MQTT finalizado com sucesso!")
 
 
+<<<<<<< HEAD
 # ── Executa ──
+=======
+# ── Executa ao importar ou rodar diretamente ──
+print("\n" + "=" * 60)
+print("  PASSO 1: Gravando certificados no ESP32-C3")
+print("=" * 60)
+load_certs.main()
+
+print("\n" + "=" * 60)
+print("  PASSO 2: Teste MQTT")
+print("=" * 60)
+>>>>>>> 910a5f050e908c1eef35445548a9189c0e429c1d
 main()
