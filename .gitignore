@@ -1,2 +1,5 @@
 .vscode
 .micropico
+AmazonRootCA1.der
+device.der
+privace.key.der

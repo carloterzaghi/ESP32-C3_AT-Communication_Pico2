@@ -73,6 +73,71 @@ class ESP32AT:
     def disconnect_wifi(self):
         return self.send_cmd("AT+CWQAP")
 
+    # ─────────── MQTT ───────────
+    def mqtt_user_cfg(self, client_id, scheme=1, username="", password="",
+                      cert_key_id=0, ca_id=0, path=""):
+        """Configura o cliente MQTT.
+        scheme: 1=TCP, 2=TLS(no verify), 3=TLS(server cert),
+                4=TLS(client cert), 5=TLS(mutual), 6=WS, 7=WSS.
+        Para AWS IoT Core com certificados pre-gravados: scheme=5, cert_key_id=0, ca_id=0.
+        """
+        return self.send_cmd(
+            f'AT+MQTTUSERCFG=0,{scheme},"{client_id}","{username}","{password}",{cert_key_id},{ca_id},"{path}"',
+            timeout=5000
+        )
+
+    def mqtt_conn_cfg(self, keepalive=120, disable_clean=0, lwt_topic="",
+                      lwt_msg="", lwt_qos=0, lwt_retain=0):
+        """Configura parametros de conexao MQTT (keepalive, LWT, etc)."""
+        return self.send_cmd(
+            f'AT+MQTTCONNCFG=0,{keepalive},{disable_clean},"{lwt_topic}","{lwt_msg}",{lwt_qos},{lwt_retain}',
+            timeout=3000
+        )
+
+    def mqtt_connect(self, host, port=1883, reconnect=0):
+        """Conecta ao broker MQTT.
+        reconnect: 0=sem reconexao automatica, 1=reconecta automaticamente."""
+        return self.send_cmd(
+            f'AT+MQTTCONN=0,"{host}",{port},{reconnect}',
+            timeout=15000, expected="OK"
+        )
+
+    def mqtt_pub(self, topic, data, qos=0, retain=0):
+        """Publica uma string no topico MQTT (dados texto, sem binario)."""
+        return self.send_cmd(
+            f'AT+MQTTPUB=0,"{topic}","{data}",{qos},{retain}',
+            timeout=10000
+        )
+
+    def mqtt_pub_raw(self, topic, payload, qos=0, retain=0):
+        """Publica dados binarios (bytes) no topico MQTT.
+        Usa AT+MQTTPUBRAW que aceita dados brutos apos o prompt '>'."""
+        raw = payload if isinstance(payload, (bytes, bytearray)) else payload.encode()
+        cmd = f'AT+MQTTPUBRAW=0,"{topic}",{len(raw)},{qos},{retain}'
+        while self.uart.any():
+            self.uart.read()
+        self.uart.write((cmd + "\r\n").encode())
+        resp = self._wait_response(5000, ">")
+        if ">" in resp:
+            self.uart.write(raw)
+            return self._wait_response(10000, "OK")
+        return resp
+
+    def mqtt_sub(self, topic, qos=0):
+        """Inscreve-se num topico MQTT."""
+        return self.send_cmd(
+            f'AT+MQTTSUB=0,"{topic}",{qos}',
+            timeout=5000
+        )
+
+    def mqtt_unsub(self, topic):
+        """Cancela inscricao num topico MQTT."""
+        return self.send_cmd(f'AT+MQTTUNSUB=0,"{topic}"', timeout=3000)
+
+    def mqtt_clean(self):
+        """Desconecta e limpa a sessao MQTT."""
+        return self.send_cmd("AT+MQTTCLEAN=0", timeout=5000)
+
     # ─────────── BLE ───────────
     def ble_init(self):
         # 2 = peripheral mode
