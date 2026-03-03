@@ -49,7 +49,7 @@ Pre-requisitos
   5. Ajuste as constantes WIFI_SSID, WIFI_PASSWORD, AWS_HOST, MQTT_CLIENT_ID
 """
 
-from esp32_at import ESP32AT
+from esp32c3_at import ESP32C3_AT
 import ubinascii
 import time
 
@@ -200,7 +200,7 @@ def main():
       5. Publicacao — publica o payload binario no topico configurado
     """
     # Inicializa o driver AT — executa reset hardware e aguarda 'ready'
-    esp = ESP32AT(uart_id=1, tx=4, rx=5, reset_pin=6)
+    esp = ESP32C3_AT(uart_id=1, tx=4, rx=5, reset_pin=6)
     # Habilita log detalhado de erros AT (inclui codigos TLS/MQTT como 0x6021)
     esp.enable_syslog()
 

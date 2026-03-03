@@ -1,4 +1,4 @@
-from esp32_at import ESP32AT
+from esp32c3_at import ESP32C3_AT
 import machine
 import time
 
@@ -23,7 +23,7 @@ CMD_OFF = "0"   # Desligar LED
 led = machine.Pin(LED_PIN, machine.Pin.OUT)
 
 # ─────────── Inicializa ESP32 ───────────
-esp = ESP32AT(uart_id=1, tx=4, rx=5, reset_pin=6)
+esp = ESP32C3_AT(uart_id=1, tx=4, rx=5, reset_pin=6)
 
 print("\n=== BLE LED Control ===")
 

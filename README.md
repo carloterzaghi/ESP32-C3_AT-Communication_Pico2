@@ -89,8 +89,8 @@ import main_ble
    MQTT_CLIENT_ID = "pico2_device"
    MQTT_TOPIC    = "seu/topico"
    ```
-3. Copie para o Pico 2: `esp32_at.py`, `umqtt_test.py` e a pasta `certs/`.
-4. Execute — o script grava os certificados automaticamente na `mfg_nvs` do ESP32
+3. Copie para o Pico 2: `esp32c3_at.py`, `umqtt_test.py` e a pasta `certs/`.
+4. Execute — o script grava os certificados automaticamente na `mfg_nvs` do ESP32-C3
    via `AT+SYSMFG` e conecta ao AWS IoT Core com TLS mútuo (`scheme=5`).
 
 ---

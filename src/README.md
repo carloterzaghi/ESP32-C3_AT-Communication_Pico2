@@ -1,8 +1,8 @@
 # 📄 Descrição dos Arquivos
 
-### `esp32_at.py` — Driver AT
+### `esp32c3_at.py` — Driver AT
 
-Classe `ESP32AT` que encapsula toda a comunicação AT com o ESP32-C3:
+Classe `ESP32C3_AT` que encapsula toda a comunicação AT com o ESP32-C3:
 
 - Reset automático via hardware (pino EN) na inicialização
 - Envio de comandos AT com timeout e resposta esperada configuráveis
@@ -11,9 +11,9 @@ Classe `ESP32AT` que encapsula toda a comunicação AT com o ESP32-C3:
 - Escrita/leitura/apagamento de dados na partição `mfg_nvs` via `AT+SYSMFG`
 
 ```python
-from esp32_at import ESP32AT
+from esp32c3_at import ESP32C3_AT
 
-esp = ESP32AT(uart_id=1, tx=4, rx=5, reset_pin=6)
+esp = ESP32C3_AT(uart_id=1, tx=4, rx=5, reset_pin=6)
 print(esp.send_cmd("AT"))  # OK
 ```
 
@@ -85,7 +85,7 @@ dedicados. A convenção de chaves segue o padrão do build system do ESP-AT
 **Uso com AWS IoT Core:**
 1. Copie os arquivos `.der` para a pasta `certs/` no filesystem do Pico
 2. Edite `WIFI_SSID`, `WIFI_PASSWORD`, `AWS_HOST`, `MQTT_CLIENT_ID` e `MQTT_TOPIC`
-3. Copie `esp32_at.py`, `umqtt_test.py` e a pasta `certs/` para o Pico 2
+3. Copie `esp32c3_at.py`, `umqtt_test.py` e a pasta `certs/` para o Pico 2
 4. Execute `umqtt_test.py` — o script grava os certificados automaticamente
 
 ### `debug_uart.py` — Debug da Comunicação
