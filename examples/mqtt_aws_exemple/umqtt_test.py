@@ -49,7 +49,7 @@ Pre-requisitos
   5. Ajuste as constantes WIFI_SSID, WIFI_PASSWORD, AWS_HOST, MQTT_CLIENT_ID
 """
 
-from esp32c3_at import ESP32C3_AT
+from lib.esp32c3_at import ESP32C3_AT
 import ubinascii
 import time
 

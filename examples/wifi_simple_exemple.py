@@ -1,4 +1,4 @@
-from esp32c3_at import ESP32C3_AT
+from lib.esp32c3_at import ESP32C3_AT
 
 # UART1, GP4=TX, GP5=RX, GP6=Reset (EN)
 esp = ESP32C3_AT(uart_id=1, tx=4, rx=5, reset_pin=6)

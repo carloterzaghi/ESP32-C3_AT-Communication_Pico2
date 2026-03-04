@@ -1,4 +1,4 @@
-from esp32c3_at import ESP32C3_AT
+from lib.esp32c3_at import ESP32C3_AT
 import time
 
 BLE_NAME = "Pico2-BLE"
