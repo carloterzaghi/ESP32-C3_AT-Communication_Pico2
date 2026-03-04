@@ -916,26 +916,30 @@ class ESP32C3_AT:
         ``AT+BLEGATTSSRVSTART`` (starts services). Must be called after
         :meth:`ble_init`.
 
-        Default ESP-AT service layout after ``BLEGATTSSRVCRE``:
+        .. important::
+            The service and characteristic indices below depend on the
+            specific ESP-AT firmware build and its ``gatts_data.csv``.
+            **Always verify** the actual layout on your device using::
+
+                AT+BLEGATTSSRV?
+                AT+BLEGATTSCHAR?
+
+        Example ESP-AT service layout (indices may vary by firmware):
 
         +----------+--------------------------------------+
         | srv_idx  | UUID / Description                   |
         +==========+======================================+
-        | 1        | ``0x1801`` Generic Attribute Service |
-        +----------+--------------------------------------+
-        | 2        | ``0x1800`` Generic Access Service    |
-        +----------+--------------------------------------+
-        | 3        | ``0xA002`` Custom service            |
+        | 1        | Custom service (``0xA002``)           |
         +----------+--------------------------------------+
 
-        Custom service characteristics (srv_idx=3):
+        Example custom service characteristics:
 
         +-----------+-----------+------------------------------------+
         | char_idx  | UUID      | Properties                         |
         +===========+===========+====================================+
         | 3         | ``0xC302``| Write (no response)                |
         +-----------+-----------+------------------------------------+
-        | 5         | ``0xC304``| Notify (used by :meth:`ble_notify`)|
+        | 6         | ``0xC305``| Indicate / Notify                  |
         +-----------+-----------+------------------------------------+
 
         Returns:
