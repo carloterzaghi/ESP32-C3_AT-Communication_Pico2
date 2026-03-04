@@ -2,17 +2,17 @@ from machine import UART, Pin
 import time
 
 uart = UART(1, baudrate=115200, tx=Pin(4), rx=Pin(5))
-esp_reset = Pin(6, Pin.OUT, value=1)  # GP6 → EN do ESP
+esp_reset = Pin(6, Pin.OUT, value=1)  # GP6 -> ESP EN pin
 
 def reset_esp():
-    """Reset hardware do ESP32-C3 via pino EN."""
-    print("Resetando ESP32-C3 via hardware...")
-    esp_reset.value(0)    # EN = LOW → reset
+    """Hardware reset of the ESP32-C3 via EN pin."""
+    print("Resetting ESP32-C3 via hardware...")
+    esp_reset.value(0)    # EN = LOW -> reset
     time.sleep_ms(100)
-    esp_reset.value(1)    # EN = HIGH → boot
-    time.sleep(3)         # Aguardar boot completo
+    esp_reset.value(1)    # EN = HIGH -> boot
+    time.sleep(3)         # Wait for full boot
     
-    # Limpar mensagem de boot
+    # Clear boot message
     while uart.any():
         boot = uart.read()
         print("Boot:", boot.decode('utf-8', 'ignore')) #type: ignore
@@ -35,7 +35,7 @@ def send_at(cmd, timeout=2000):
     print("---")
     return decoded
 
-# Reset e testar
+# Reset and test
 reset_esp()
 send_at("AT")
 send_at("AT+GMR", timeout=3000)

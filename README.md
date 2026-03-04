@@ -1,55 +1,55 @@
 # ESP32-C3_AT-Communication_Pico2
 
-Projeto de comunicação entre **Raspberry Pi Pico 2 (RP2350)** e **ESP32-C3-Mini-1** via comandos **AT** por UART.
+Communication project between **Raspberry Pi Pico 2 (RP2350)** and **ESP32-C3-Mini-1** via **AT** commands over UART.
 
-O ESP32-C3 roda o firmware oficial **ESP-AT da Espressif** (v4.1.1.0) e funciona como módulo Wi-Fi/BLE controlado pelo Pico 2 através de comandos AT enviados por cabo serial.
-
----
-
-## ✨ Funcionalidades
-
-- **Wi-Fi (STA):** conexão, obtenção de IP, requisições HTTP GET
-- **MQTT com TLS mútuo:** conexão ao AWS IoT Core com autenticação de cliente e servidor (scheme 5), SNI e ALPN
-- **Certificados via NVS:** gravação de certificados `.der` diretamente na partição `mfg_nvs` do ESP32-C3 via `AT+SYSMFG`, sem ferramentas externas
-- **BLE Peripheral:** advertising, servidor GATT, Write e Notify — com exemplo de controle de LED via Web Bluetooth
-- **SNTP:** sincronização de horário (obrigatória para validação de certificados TLS)
-- **Reset por hardware:** pino EN controlado pelo Pico para garantir estado limpo na inicialização
-- **Log AT (`AT+SYSLOG`):** códigos de erro detalhados para depuração de falhas TLS/MQTT
-- **Zero dependências externas:** funciona com MicroPython puro, sem bibliotecas adicionais no Pico
+The ESP32-C3 runs the official **Espressif ESP-AT firmware** (v4.1.1.0) and works as a Wi-Fi/BLE module controlled by the Pico 2 through AT commands sent over serial.
 
 ---
 
-## 📁 Estrutura do Projeto
+## Features
+
+- **Wi-Fi (STA):** connection, IP retrieval, HTTP GET requests
+- **MQTT with mutual TLS:** connection to AWS IoT Core with client and server authentication (scheme 5), SNI and ALPN
+- **Certificates via NVS:** writing `.der` certificates directly to the ESP32-C3 `mfg_nvs` partition via `AT+SYSMFG`, no external tools needed
+- **BLE Peripheral:** advertising, GATT server, Write and Notify -- with LED control example via Web Bluetooth
+- **SNTP:** time synchronization (required for TLS certificate validation)
+- **Hardware reset:** EN pin controlled by the Pico to ensure a clean state on startup
+- **AT Log (`AT+SYSLOG`):** detailed error codes for TLS/MQTT failure debugging
+- **Zero external dependencies:** works with plain MicroPython, no additional libraries on the Pico
+
+---
+
+## Project Structure
 
 ```
 lib/
-└── esp32c3_at.py              # Driver principal (classe ESP32C3_AT)
+└── esp32c3_at.py              # Main driver (ESP32C3_AT class)
 examples/
-├── wifi_simple_exemple.py     # Exemplo Wi-Fi + HTTP GET
-├── ble_simple_exemple.py      # Exemplo BLE Peripheral (advertising)
+├── wifi_simple_exemple.py     # Wi-Fi + HTTP GET example
+├── ble_simple_exemple.py      # BLE Peripheral (advertising) example
 ├── ble_web_exemple/
-│   ├── main_ble_led.py        # Controle de LED via BLE + GATT server
-│   └── index.html             # Interface Web Bluetooth (HTML/CSS/JS)
+│   ├── main_ble_led.py        # LED control via BLE + GATT server
+│   └── index.html             # Web Bluetooth interface (HTML/CSS/JS)
 └── mqtt_aws_exemple/
-    ├── umqtt_test.py           # MQTT TLS mútuo para AWS IoT Core
-    └── certs/                  # Certificados .der (não versionados)
+    ├── umqtt_test.py           # Mutual TLS MQTT for AWS IoT Core
+    └── certs/                  # .der certificates (not versioned)
 utils/
-└── debug_uart.py              # Utilitário de diagnóstico UART
+└── debug_uart.py              # UART diagnostic utility
 ```
 
 ---
 
-## 🔧 Hardware Necessário
+## Required Hardware
 
-| Componente | Descrição |
+| Component | Description |
 |---|---|
-| **Raspberry Pi Pico 2** | Microcontrolador RP2350 rodando MicroPython |
-| **ESP32-C3-Mini-1** | Módulo Wi-Fi/BLE com firmware AT da Espressif |
-| **Jumpers/Cabos** | Para conexão UART entre os dois módulos |
+| **Raspberry Pi Pico 2** | RP2350 microcontroller running MicroPython |
+| **ESP32-C3-Mini-1** | Wi-Fi/BLE module with Espressif AT firmware |
+| **Jumpers/Wires** | For UART connection between the two modules |
 
 ---
 
-## 🔌 Conexões (Pinout)
+## Connections (Pinout)
 
 ```
   Pico 2                      ESP32-C3-Mini-1
@@ -64,130 +64,130 @@ utils/
 
 ![Pinout](pinout.jpg)
 
-| Pico 2 | ESP32-C3-Mini-1 | Função |
+| Pico 2 | ESP32-C3-Mini-1 | Function |
 |---|---|---|
-| GP4 (UART1 TX) | GPIO6 (RX) | Dados Pico → ESP |
-| GP5 (UART1 RX) | GPIO7 (TX) | Dados ESP → Pico |
-| GP6 | EN | Reset hardware do ESP |
-| GND | GND | Referência comum |
-| 3V3(OUT) | 3V3 | Alimentação |
+| GP4 (UART1 TX) | GPIO6 (RX) | Data Pico → ESP |
+| GP5 (UART1 RX) | GPIO7 (TX) | Data ESP → Pico |
+| GP6 | EN | ESP hardware reset |
+| GND | GND | Common ground |
+| 3V3(OUT) | 3V3 | Power supply |
 
-> ⚠️ **TX do Pico vai no RX do ESP e vice-versa** (conexão cruzada).
+> **Pico TX goes to ESP RX and vice-versa** (crossover connection).
 
 ---
 
-## 🚀 Como Usar
+## How to Use
 
-### 1. Gravar o Firmware AT no ESP32-C3-Mini-1
+### 1. Flash the AT Firmware on the ESP32-C3-Mini-1
 
-Baixe o firmware oficial: [ESP32-C3-MINI-1 AT v4.1.1.0](https://docs.espressif.com/projects/esp-at/en/latest/esp32c3/AT_Binary_Lists/esp_at_binaries.html)
+Download the official firmware: [ESP32-C3-MINI-1 AT v4.1.1.0](https://docs.espressif.com/projects/esp-at/en/latest/esp32c3/AT_Binary_Lists/esp_at_binaries.html)
 
-Grave com `esptool`:
+Flash with `esptool`:
 
 ```bash
 python -m esptool --chip esp32c3 --port COM7 --baud 460800 --before default-reset --after hard-reset write-flash --flash-mode dio --flash-freq 40m --flash-size 4MB 0x0 bootloader/bootloader.bin 0x8000 partition_table/partition-table.bin 0xd000 ota_data_initial.bin 0x1e000 at_customize.bin 0x1f000 customized_partitions/mfg_nvs.bin 0x60000 esp-at.bin
 ```
 
-### 2. Instalar MicroPython no Pico 2
+### 2. Install MicroPython on the Pico 2
 
-Baixe o firmware MicroPython para o Pico 2: [micropython.org](https://micropython.org/download/RPI_PICO2/)
+Download the MicroPython firmware for the Pico 2: [micropython.org](https://micropython.org/download/RPI_PICO2/)
 
-### 3. Copiar os Arquivos para o Pico 2
+### 3. Copy the Files to the Pico 2
 
-Usando **Thonny**, **mpremote** ou a extensão **MicroPico** do VS Code, copie os arquivos para o Pico 2.
+Using **Thonny**, **mpremote** or the **MicroPico** VS Code extension, copy the files to the Pico 2.
 
-> **Importante:** o driver deve ficar na pasta `lib/` do Pico para que os imports
-> `from lib.esp32c3_at import ESP32C3_AT` funcionem corretamente.
+> **Important:** the driver must be placed in the `lib/` folder on the Pico so that
+> `from lib.esp32c3_at import ESP32C3_AT` imports work correctly.
 
-Estrutura mínima no filesystem do Pico:
+Minimum filesystem structure on the Pico:
 ```
 /
 ├── lib/
 │   └── esp32c3_at.py
-└── <exemplo>.py
+└── <example>.py
 ```
 
-### 4. Executar
+### 4. Run
 
-**Exemplo Wi-Fi + HTTP GET:**
+**Wi-Fi + HTTP GET Example:**
 
-Copie `lib/esp32c3_at.py` (na pasta `lib/`) e `examples/wifi_simple_exemple.py` para o Pico 2:
+Copy `lib/esp32c3_at.py` (in the `lib/` folder) and `examples/wifi_simple_exemple.py` to the Pico 2:
 ```python
 import wifi_simple_exemple
 ```
-Conecta ao Wi-Fi, obtém o IP local e faz um HTTP GET para `api.ipify.org` (retorna o IP público).
+Connects to Wi-Fi, retrieves the local IP and performs an HTTP GET to `api.ipify.org` (returns the public IP).
 
-**Exemplo BLE Peripheral (advertising):**
+**BLE Peripheral (advertising) Example:**
 
-Copie `lib/esp32c3_at.py` e `examples/ble_simple_exemple.py` para o Pico 2:
+Copy `lib/esp32c3_at.py` and `examples/ble_simple_exemple.py` to the Pico 2:
 ```python
 import ble_simple_exemple
 ```
-Inicializa o BLE como `"Pico2-BLE"`, configura advertising com nome visível e aguarda conexões.
+Initializes BLE as `"Pico2-BLE"`, configures advertising with a visible name and waits for connections.
 
-**Exemplo BLE + LED via Web Bluetooth:**
+**BLE + LED via Web Bluetooth Example:**
 
-Copie `lib/esp32c3_at.py` e `examples/ble_web_exemple/main_ble_led.py` para o Pico 2.
-Abra `index.html` no Chrome (via HTTPS ou `localhost`) e conecte via Web Bluetooth.
-A página descobre automaticamente os UUIDs GATT e permite ligar/desligar o LED onboard (GP25)
-com confirmação via Notify.
+Copy `lib/esp32c3_at.py` and `examples/ble_web_exemple/main_ble_led.py` to the Pico 2.
+Open `index.html` in Chrome (via HTTPS or `localhost`) and connect via Web Bluetooth.
+The page automatically discovers the GATT UUIDs and allows toggling the onboard LED (GP25)
+with confirmation via Notify.
 
-**Teste MQTT com AWS IoT Core (TLS mútuo):**
+**MQTT Test with AWS IoT Core (mutual TLS):**
 
-1. Copie os certificados `.der` para a pasta `certs/` no filesystem do Pico.
-2. Edite os parâmetros em `examples/mqtt_aws_exemple/umqtt_test.py`:
+1. Copy the `.der` certificates to the `certs/` folder on the Pico filesystem.
+2. Edit the parameters in `examples/mqtt_aws_exemple/umqtt_test.py`:
    ```python
-   WIFI_SSID      = "sua_rede"
-   WIFI_PASSWORD  = "sua_senha"
+   WIFI_SSID      = "your_network"
+   WIFI_PASSWORD  = "your_password"
    AWS_HOST       = "abc123-ats.iot.us-east-1.amazonaws.com"
    MQTT_CLIENT_ID = "pico2_device"
-   MQTT_TOPIC     = "seu/topico"
+   MQTT_TOPIC     = "your/topic"
    ```
-3. Copie para o Pico 2: `lib/esp32c3_at.py` (na pasta `lib/`), `umqtt_test.py` e a pasta `certs/`.
-4. Execute — o script executa 6 passos automaticamente:
-   - **Passo 0:** Diagnóstico do firmware e estado NVS
-   - **Passo 1:** Conecta Wi-Fi + sincroniza relógio via SNTP
-   - **Passo 2:** Converte DER→PEM e grava certificados na `mfg_nvs` via `AT+SYSMFG`
-   - **Passo 3:** Confirma IP e hora válida pré-conexão
-   - **Passo 4:** Configura MQTT TLS mútuo (scheme=5) com SNI + ALPN e conecta
-   - **Passo 5:** Publica payload binário via `AT+MQTTPUBRAW`
+3. Copy to the Pico 2: `lib/esp32c3_at.py` (in the `lib/` folder), `umqtt_test.py` and the `certs/` folder.
+4. Run -- the script executes 6 steps automatically:
+   - **Step 0:** Firmware diagnostics and NVS state
+   - **Step 1:** Connect Wi-Fi + synchronize clock via SNTP
+   - **Step 2:** Convert DER to PEM and write certificates to `mfg_nvs` via `AT+SYSMFG`
+   - **Step 3:** Confirm IP and valid time before connection
+   - **Step 4:** Configure mutual TLS MQTT (scheme=5) with SNI + ALPN and connect
+   - **Step 5:** Publish binary payload via `AT+MQTTPUBRAW`
 
 ---
 
-## 📌 Comandos AT Úteis
+## Useful AT Commands
 
-| Comando | Descrição |
+| Command | Description |
 |---|---|
-| `AT` | Teste de comunicação |
-| `AT+GMR` | Versão do firmware AT |
-| `AT+RST` | Reset por software |
-| `AT+CWMODE=1` | Modo Station (cliente Wi-Fi) |
-| `AT+CWJAP="ssid","pwd"` | Conectar ao Wi-Fi |
-| `AT+CWLAP` | Listar redes disponíveis |
-| `AT+CIFSR` | Ver IP atribuído |
-| `AT+CIPSTART="TCP","host",port` | Abrir conexão TCP |
-| `AT+CIPSEND=<len>` | Enviar dados |
-| `AT+CIPCLOSE` | Fechar conexão |
-| `AT+BLEINIT=2` | Iniciar BLE (Peripheral) |
-| `AT+BLENAME="nome"` | Definir nome BLE |
-| `AT+BLEADVSTART` | Iniciar advertising BLE |
-| `AT+MQTTUSERCFG=0,5,"id","","",0,0,""` | Configurar MQTT com TLS mútuo (scheme=5) |
-| `AT+MQTTSNI=0,"host"` | Definir SNI para TLS |
-| `AT+MQTTALPN=0,1,"x-amzn-mqtt-ca"` | Definir ALPN (AWS IoT Core porta 443) |
-| `AT+MQTTCONN=0,"host",8883,0` | Conectar ao broker MQTT |
-| `AT+MQTTPUB=0,"topic","msg",0,0` | Publicar mensagem de texto |
-| `AT+MQTTPUBRAW=0,"topic",<len>,0,0` | Publicar dados binários |
-| `AT+MQTTSUB=0,"topic",0` | Subscrever tópico MQTT |
-| `AT+MQTTCLEAN=0` | Encerrar conexão MQTT |
-| `AT+SYSMFG=2,"mqtt_ca","mqtt_ca",8,<len>` | Gravar certificado CA na NVS |
-| `AT+CIPSNTPCFG=1,-3,"pool.ntp.org"` | Configurar SNTP (fuso BRT) |
-| `AT+SYSLOG=1` | Ativar log AT detalhado |
+| `AT` | Communication test |
+| `AT+GMR` | AT firmware version |
+| `AT+RST` | Software reset |
+| `AT+CWMODE=1` | Station mode (Wi-Fi client) |
+| `AT+CWJAP="ssid","pwd"` | Connect to Wi-Fi |
+| `AT+CWLAP` | List available networks |
+| `AT+CIFSR` | View assigned IP |
+| `AT+CIPSTART="TCP","host",port` | Open TCP connection |
+| `AT+CIPSEND=<len>` | Send data |
+| `AT+CIPCLOSE` | Close connection |
+| `AT+BLEINIT=2` | Initialize BLE (Peripheral) |
+| `AT+BLENAME="name"` | Set BLE name |
+| `AT+BLEADVSTART` | Start BLE advertising |
+| `AT+MQTTUSERCFG=0,5,"id","","",0,0,""` | Configure MQTT with mutual TLS (scheme=5) |
+| `AT+MQTTSNI=0,"host"` | Set SNI for TLS |
+| `AT+MQTTALPN=0,1,"x-amzn-mqtt-ca"` | Set ALPN (AWS IoT Core port 443) |
+| `AT+MQTTCONN=0,"host",8883,0` | Connect to MQTT broker |
+| `AT+MQTTPUB=0,"topic","msg",0,0` | Publish text message |
+| `AT+MQTTPUBRAW=0,"topic",<len>,0,0` | Publish binary data |
+| `AT+MQTTSUB=0,"topic",0` | Subscribe to MQTT topic |
+| `AT+MQTTCLEAN=0` | Close MQTT connection |
+| `AT+SYSMFG=2,"mqtt_ca","mqtt_ca",8,<len>` | Write CA certificate to NVS |
+| `AT+CIPSNTPCFG=1,-3,"pool.ntp.org"` | Configure SNTP (BRT timezone) |
+| `AT+SYSLOG=1` | Enable detailed AT log |
 
-📖 Documentação completa: [ESP-AT Command Set](https://docs.espressif.com/projects/esp-at/en/latest/esp32c3/AT_Command_Set/index.html)
+Full documentation: [ESP-AT Command Set](https://docs.espressif.com/projects/esp-at/en/latest/esp32c3/AT_Command_Set/index.html)
 
 ---
 
-## 🛠️ Tecnologias
+## Technologies
 
 - **MicroPython** v1.27.0 (RP2350)
 - **ESP-AT Firmware** v4.1.1.0 (ESP32-C3)
@@ -195,6 +195,6 @@ com confirmação via Notify.
 
 ---
 
-## 📄 Licença
+## License
 
-MIT License — © 2026 Carlo Terzaghi Tuck Schneider. Veja [LICENSE](LICENSE).
+MIT License -- (c) 2026 Carlo Terzaghi Tuck Schneider. See [LICENSE](LICENSE).

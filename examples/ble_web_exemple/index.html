@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pico2 BLE — Controle de LED</title>
+  <title>Pico2 BLE — LED Control</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -205,31 +205,31 @@
 </head>
 <body>
 
-  <h1>Pico2 <span>BLE</span> — Controle LED</h1>
+  <h1>Pico2 <span>BLE</span> — LED Control</h1>
 
   <div id="status-bar">
     <div id="status-dot"></div>
-    <span id="status-text">Desconectado</span>
+    <span id="status-text">Disconnected</span>
   </div>
 
   <div class="card">
-    <span class="card-title">Dispositivo</span>
+    <span class="card-title">Device</span>
 
     <div id="led-visual">
       <div id="led-bulb"></div>
-      <span id="led-label">LED DESCONHECIDO</span>
+      <span id="led-label">LED UNKNOWN</span>
     </div>
 
     <div class="btn-row">
-      <button id="btn-connect">🔵 Conectar via Bluetooth</button>
-      <button id="btn-on"  disabled>💡 Ligar LED</button>
-      <button id="btn-off" disabled>🌑 Desligar LED</button>
+      <button id="btn-connect">Connect via Bluetooth</button>
+      <button id="btn-on"  disabled>Turn LED On</button>
+      <button id="btn-off" disabled>Turn LED Off</button>
     </div>
   </div>
 
-  <!-- Card: UUIDs descobertos automaticamente (somente leitura) -->
+  <!-- Card: auto-discovered UUIDs (read-only) -->
   <div class="card">
-    <span class="card-title">⚙️ Configuração GATT <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#4b516a">— preenchido ao conectar</span></span>
+    <span class="card-title">GATT Configuration <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#4b516a">— populated on connect</span></span>
     <div class="uuid-group">
       <div class="uuid-row">
         <label>Service UUID</label>
@@ -247,20 +247,20 @@
   </div>
 
   <div class="card">
-    <span class="card-title">Log de eventos</span>
-    <div id="log"><span class="inf">Aguardando conexão...</span></div>
+    <span class="card-title">Event Log</span>
+    <div id="log"><span class="inf">Waiting for connection...</span></div>
   </div>
 
   <p class="notice">
-    ⚠️ A Web Bluetooth API exige <strong>HTTPS</strong> ou <code>localhost</code>.<br>
-    Para testar localmente, execute:<br>
+    The Web Bluetooth API requires <strong>HTTPS</strong> or <code>localhost</code>.<br>
+    To test locally, run:<br>
     <code>python -m http.server 8080</code>
-    e acesse
+    and open
     <a href="http://localhost:8080" target="_blank">http://localhost:8080</a>
   </p>
 
   <script>
-    // UUIDs candidatos — cobre toda a tabela padrao do firmware ESP-AT
+    // Candidate UUIDs -- covers the entire default table of the ESP-AT firmware
     const SCAN_UUIDS = [
       '00001800-0000-1000-8000-00805f9b34fb',
       '00001801-0000-1000-8000-00805f9b34fb',
@@ -281,7 +281,7 @@
     const enc = new TextEncoder();
     const dec = new TextDecoder();
 
-    // ── Elementos
+    // -- Elements
     const btnConnect = document.getElementById('btn-connect');
     const btnOn      = document.getElementById('btn-on');
     const btnOff     = document.getElementById('btn-off');
@@ -297,36 +297,36 @@
       document.getElementById('uuid-notify').value  = notify  ?? '—';
     }
 
-    // ── Log
+    // -- Log
     function log(msg, cls = '') {
-      const now = new Date().toLocaleTimeString('pt-br');
+      const now = new Date().toLocaleTimeString('en-US');
       const line = document.createElement('div');
       line.innerHTML = `<span class="ts">[${now}]</span> <span class="${cls}">${msg}</span>`;
       logEl.appendChild(line);
       logEl.scrollTop = logEl.scrollHeight;
     }
 
-    // ── Status UI
+    // -- Status UI
     function setConnected(yes) {
       statusBar.className = yes ? 'connected' : '';
-      statusText.textContent = yes ? `Conectado — ${device?.name ?? ''}` : 'Desconectado';
-      btnConnect.textContent = yes ? '🔴 Desconectar' : '🔵 Conectar via Bluetooth';
+      statusText.textContent = yes ? `Connected — ${device?.name ?? ''}` : 'Disconnected';
+      btnConnect.textContent = yes ? 'Disconnect' : 'Connect via Bluetooth';
       btnConnect.className = yes ? 'connected' : '';
       btnOn.disabled  = !yes;
       btnOff.disabled = !yes;
     }
 
-    // ── LED visual
+    // -- LED visual
     function setLed(on, known = true) {
       bulb.className = on ? 'on' : '';
-      ledLabel.textContent = !known ? 'LED DESCONHECIDO' : (on ? 'LED LIGADO' : 'LED DESLIGADO');
+      ledLabel.textContent = !known ? 'LED UNKNOWN' : (on ? 'LED ON' : 'LED OFF');
     }
 
-    // ── Notificacoes recebidas do Pico
+    // -- Notifications received from the Pico
     function onNotification(event) {
       const msg = dec.decode(event.target.value);
       if (msg === 'CONNECTED') {
-        log('✅ Pico confirmou conexão BLE!', 'ok');
+        log('Pico confirmed BLE connection!', 'ok');
         return;
       }
       log(`← ${msg}`, msg.startsWith('OK') ? 'ok' : 'err');
@@ -334,7 +334,7 @@
       if (msg === 'OK:OFF') setLed(false);
     }
 
-    // ── Conectar (com auto-descoberta de UUIDs embutida)
+    // -- Connect (with built-in UUID auto-discovery)
     async function connect() {
       if (device?.gatt?.connected) {
         device.gatt.disconnect();
@@ -342,19 +342,19 @@
       }
 
       if (!navigator.bluetooth) {
-        log('Web Bluetooth nao disponivel. Use Chrome com HTTPS ou localhost.', 'err');
+        log('Web Bluetooth not available. Use Chrome with HTTPS or localhost.', 'err');
         return;
       }
 
       try {
-        log('Buscando dispositivo BLE...', 'inf');
+        log('Searching for BLE device...', 'inf');
         device = await navigator.bluetooth.requestDevice({
           filters: [{ name: 'Pico2-BLE' }],
           optionalServices: SCAN_UUIDS
         });
 
         device.addEventListener('gattserverdisconnected', () => {
-          log('Dispositivo desconectado.', 'err');
+          log('Device disconnected.', 'err');
           setConnected(false);
           setLed(false, false);
           setUUIDFields(null, null, null);
@@ -362,14 +362,14 @@
           notifyChar = null;
         });
 
-        log('Conectando ao servidor GATT...', 'inf');
+        log('Connecting to GATT server...', 'inf');
         server = await device.gatt.connect();
 
-        log('Descobrindo serviços...', 'inf');
+        log('Discovering services...', 'inf');
         const services = await server.getPrimaryServices();
 
         if (services.length === 0) {
-          log('Nenhum serviço GATT encontrado. Verifique se o Pico está rodando main_ble_led.py.', 'err');
+          log('No GATT services found. Check that the Pico is running main_ble_led.py.', 'err');
           device.gatt.disconnect();
           return;
         }
@@ -388,7 +388,7 @@
         }
 
         if (!foundWrite || !foundNotify) {
-          log('⚠️ Não encontrou par write+notify. Verifique o firmware AT do ESP32.', 'err');
+          log('Could not find write+notify pair. Check the ESP32 AT firmware.', 'err');
           device.gatt.disconnect();
           return;
         }
@@ -396,7 +396,7 @@
         writeChar  = foundWrite;
         notifyChar = foundNotify;
 
-        // Exibe os UUIDs descobertos nos campos
+        // Display the discovered UUIDs in the fields
         setUUIDFields(foundService.uuid, foundWrite.uuid, foundNotify.uuid);
 
         await notifyChar.startNotifications();
@@ -404,26 +404,26 @@
 
         setConnected(true);
         setLed(false, false);
-        log('Conectado com sucesso!', 'ok');
+        log('Connected successfully!', 'ok');
 
       } catch (err) {
-        log(`Erro: ${err.message}`, 'err');
+        log(`Error: ${err.message}`, 'err');
         console.error(err);
       }
     }
 
-    // ── Enviar comando
+    // -- Send command
     async function sendCmd(cmd) {
-      if (!writeChar) { log('Nao conectado.', 'err'); return; }
+      if (!writeChar) { log('Not connected.', 'err'); return; }
       try {
-        log(`→ ${cmd === '1' ? '1 (Ligar)' : '0 (Desligar)'}`, 'cmd');
+        log(`\u2192 ${cmd === '1' ? '1 (Turn On)' : '0 (Turn Off)'}`, 'cmd');
         await writeChar.writeValue(enc.encode(cmd));
       } catch (err) {
-        log(`Erro ao enviar: ${err.message}`, 'err');
+        log(`Error sending: ${err.message}`, 'err');
       }
     }
 
-    // ── Eventos
+    // -- Events
     btnConnect.addEventListener('click', connect);
     btnOn .addEventListener('click', () => sendCmd('1'));
     btnOff.addEventListener('click', () => sendCmd('0'));

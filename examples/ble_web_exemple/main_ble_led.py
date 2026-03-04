@@ -2,27 +2,27 @@ from lib.esp32c3_at import ESP32C3_AT
 import machine
 import time
 
-# ─────────── Configuracoes ───────────
+# ─────────── Configuration ───────────
 BLE_NAME    = "Pico2-BLE"
-LED_PIN     = 25    # LED onboard do Pico 2 (GP25)
+LED_PIN     = 25    # Pico 2 onboard LED (GP25)
 
-# Indices do servico GATT — confirmados via AT+BLEGATTSSRV? e AT+BLEGATTSCHAR?
+# GATT service indices -- confirmed via AT+BLEGATTSSRV? and AT+BLEGATTSCHAR?
 # +BLEGATTSSRV:1,1,0xA002,1
 # +BLEGATTSCHAR:"char",1,3,0xC302,0x08  -> WRITE (char_idx=3)
 # +BLEGATTSCHAR:"char",1,6,0xC305,0x10  -> NOTIFY (char_idx=6)
-SRV_IDX        = 1   # Servico customizado UUID 0xA002
-WRITE_CHAR_IDX = 3   # Caracteristica WRITE  UUID 0xC302
-NTFY_CHAR_IDX  = 6   # Caracteristica NOTIFY UUID 0xC305
+SRV_IDX        = 1   # Custom service UUID 0xA002
+WRITE_CHAR_IDX = 3   # WRITE characteristic UUID 0xC302
+NTFY_CHAR_IDX  = 6   # NOTIFY characteristic UUID 0xC305
 
-# Comandos curtos (1 byte) para caber no atributo GATT do firmware ESP-AT
-# O firmware define a caracteristica 0xC302 com tamanho maximo de 1 byte
-CMD_ON  = "1"   # Ligar LED
-CMD_OFF = "0"   # Desligar LED
+# Short commands (1 byte) to fit in the ESP-AT firmware GATT attribute
+# The firmware defines characteristic 0xC302 with a maximum size of 1 byte
+CMD_ON  = "1"   # Turn LED on
+CMD_OFF = "0"   # Turn LED off
 
 # ─────────── Hardware ───────────
 led = machine.Pin(LED_PIN, machine.Pin.OUT)
 
-# ─────────── Inicializa ESP32 ───────────
+# ─────────── Initialize ESP32 ───────────
 esp = ESP32C3_AT(uart_id=1, tx=4, rx=5, reset_pin=6)
 
 print("\n=== BLE LED Control ===")
@@ -30,7 +30,7 @@ print("\n=== BLE LED Control ===")
 resp = esp.ble_init()
 print("[BLEINIT]", resp.strip())
 if "ERROR" in resp:
-    print("ERRO: falha ao inicializar BLE. Verifique o firmware AT.")
+    print("ERROR: failed to initialize BLE. Check the AT firmware.")
     raise SystemExit
 
 time.sleep_ms(500)
@@ -38,22 +38,22 @@ time.sleep_ms(500)
 resp = esp.ble_set_name(BLE_NAME)
 print("[BLENAME]", resp.strip())
 
-# ── GATT Server ──
+# -- GATT Server --
 resp = esp.ble_gatt_init()
 print("[GATT INIT]", resp.strip())
 if "ERROR" in resp:
-    print("ERRO: AT+BLEGATTSSRVCRE ou AT+BLEGATTSSRVSTART falhou.")
-    print("Verifique se o firmware AT suporta GATT server.")
+    print("ERROR: AT+BLEGATTSSRVCRE or AT+BLEGATTSSRVSTART failed.")
+    print("Check whether the AT firmware supports GATT server.")
     raise SystemExit
 
-# Imprime os UUIDs reais para copiar no site
-print("\n--- Servicos GATT disponíveis (copie para o site) ---")
+# Print the actual UUIDs to copy to the web page
+print("\n--- Available GATT services (copy to the web page) ---")
 print(esp.send_cmd("AT+BLEGATTSSRV?", timeout=3000).strip())
-print("--- Características GATT ---")
+print("--- GATT Characteristics ---")
 print(esp.send_cmd("AT+BLEGATTSCHAR?", timeout=3000).strip())
 print("----------------------------------------------------\n")
 
-# Lê srv_idx e char_idx reais da resposta
+# Read the actual srv_idx and char_idx from the response
 resp = esp.ble_set_adv_param()
 print("[BLEADVPARAM]", resp.strip())
 
@@ -63,12 +63,12 @@ print("[BLEADVDATA]", resp.strip())
 resp = esp.ble_start_advertising()
 print("[BLEADVSTART]", resp.strip())
 
-print(f"\nAguardando conexao BLE como '{BLE_NAME}'...")
+print(f"\nWaiting for BLE connection as '{BLE_NAME}'...")
 
-# ─────────── Loop principal ───────────
+# ─────────── Main loop ───────────
 conn_idx     = None
 buf          = b""
-pending_write = None   # guarda metadados do +WRITE enquanto espera a linha de dados
+pending_write = None   # stores +WRITE metadata while waiting for the data line
 
 while True:
     if esp.uart.any():
@@ -83,7 +83,7 @@ while True:
         if not text:
             continue
 
-        # ── Linha de dados pendente de um +WRITE anterior ──
+        # -- Pending data line from a previous +WRITE --
         if pending_write is not None:
             cmd = text.strip()
             pending_write = None
@@ -93,44 +93,44 @@ while True:
             if cmd == CMD_ON:
                 led.value(1)
                 confirmation = "OK:ON"
-                print("[LED] Ligado")
+                print("[LED] On")
             elif cmd == CMD_OFF:
                 led.value(0)
                 confirmation = "OK:OFF"
-                print("[LED] Desligado")
+                print("[LED] Off")
             else:
                 confirmation = f"ERR:{cmd}"
-                print(f"[LED] Comando desconhecido: '{cmd}'")
+                print(f"[LED] Unknown command: '{cmd}'")
 
             if conn_idx is not None:
                 resp = esp.ble_notify(conn_idx, SRV_IDX, NTFY_CHAR_IDX, confirmation)
                 print(f"[NOTIFY] {confirmation} ->", resp.strip())
             else:
-                print("[NOTIFY] Nenhum cliente conectado.")
+                print("[NOTIFY] No client connected.")
             continue
 
-        # ── Cliente conectou ──
+        # -- Client connected --
         if text.startswith("+BLECONN:"):
             try:
                 conn_idx = int(text.split(":")[1].split(",")[0])
             except Exception:
                 conn_idx = 0
-            print(f"[+] Cliente conectado (conn_idx={conn_idx})")
-            # Notifica o site que a conexao foi estabelecida
+            print(f"[+] Client connected (conn_idx={conn_idx})")
+            # Notify the web page that the connection was established
             resp = esp.ble_notify(conn_idx, SRV_IDX, NTFY_CHAR_IDX, "CONNECTED")
             print("[NOTIFY] CONNECTED ->", resp.strip())
 
-        # ── Cliente desconectou ──
+        # -- Client disconnected --
         elif text.startswith("+BLEDISCONN:"):
-            print("[-] Cliente desconectado. Reiniciando advertising...")
+            print("[-] Client disconnected. Restarting advertising...")
             conn_idx = None
             esp.ble_start_advertising()
 
-        # ── Cabecalho WRITE GATT recebido ──
-        # Formato v4.x (dois estilos possiveis):
-        #   Estilo A (dado inline):  +WRITE:0,1,3,0,1,1
-        #   Estilo B (dado na prox linha): +WRITE:0,1,3,0,1  -> prox linha = 1
-        # Ignora writes no CCCD (desc_idx>0 ou char_idx != WRITE_CHAR_IDX)
+        # -- GATT WRITE header received --
+        # v4.x format (two possible styles):
+        #   Style A (inline data):     +WRITE:0,1,3,0,1,1
+        #   Style B (data on next line): +WRITE:0,1,3,0,1  -> next line = 1
+        # Ignore writes to CCCD (desc_idx>0 or char_idx != WRITE_CHAR_IDX)
         elif text.startswith("+WRITE:"):
             parts = text[7:].split(",", 5)
             # char_idx esta em parts[2]
@@ -140,29 +140,29 @@ while True:
                 char_idx_recv = -1
 
             if char_idx_recv != WRITE_CHAR_IDX:
-                # Write no CCCD ou outra caracteristica — ignorar
+                # Write to CCCD or another characteristic -- ignore
                 continue
 
             if len(parts) >= 6 and parts[5].strip():
-                # Estilo A — dado ja esta na mesma linha
+                # Style A -- data already on the same line
                 cmd = parts[5].strip()
                 print(f"[CMD] Recebido: '{cmd}'")
                 if cmd == CMD_ON:
                     led.value(1)
                     confirmation = "OK:ON"
-                    print("[LED] Ligado")
+                    print("[LED] On")
                 elif cmd == CMD_OFF:
                     led.value(0)
                     confirmation = "OK:OFF"
-                    print("[LED] Desligado")
+                    print("[LED] Off")
                 else:
                     confirmation = f"ERR:{cmd}"
-                    print(f"[LED] Comando desconhecido: '{cmd}'")
+                    print(f"[LED] Unknown command: '{cmd}'")
                 if conn_idx is not None:
                     resp = esp.ble_notify(conn_idx, SRV_IDX, NTFY_CHAR_IDX, confirmation)
                     print(f"[NOTIFY] {confirmation} ->", resp.strip())
             else:
-                # Estilo B — dado vem na proxima linha
+                # Style B -- data comes on the next line
                 pending_write = parts
 
     time.sleep_ms(10)

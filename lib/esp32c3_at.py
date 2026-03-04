@@ -1,39 +1,39 @@
 """
-esp32c3_at.py - Driver MicroPython para o módulo ESP32-C3-Mini-1 via comandos AT.
+esp32c3_at.py - MicroPython driver for the ESP32-C3-Mini-1 module via AT commands.
 
-Este módulo fornece uma interface de alto nível para controlar o ESP32-C3-Mini-1
-a partir de um Raspberry Pi Pico 2 (ou qualquer placa MicroPython compatível),
-utilizando a comunicação UART com o firmware ESP-AT.
+This module provides a high-level interface to control the ESP32-C3-Mini-1
+from a Raspberry Pi Pico 2 (or any compatible MicroPython board),
+using UART communication with the ESP-AT firmware.
 
-Funcionalidades suportadas:
-  - WiFi (STA): conexão, obtenção de IP, HTTP GET, desconexão.
-  - MQTT: configuração, conexão TLS/TCP, publish, subscribe, LWT, SNI, ALPN.
-  - BLE: advertising, servidor GATT, notificações.
-  - SNTP: sincronização de horário (necessária para validação de certificados TLS).
-  - PKI / Flash Partitions: gravação de certificados nas partições da flash.
-  - Manufacturing NVS (mfg_nvs): gravação de certificados e dados na NVS.
-  - Utilitários: reset por hardware, log AT (SYSLOG).
+Supported features:
+  - WiFi (STA): connection, IP retrieval, HTTP GET, disconnection.
+  - MQTT: configuration, TLS/TCP connection, publish, subscribe, LWT, SNI, ALPN.
+  - BLE: advertising, GATT server, notifications.
+  - SNTP: time synchronization (required for TLS certificate validation).
+  - PKI / Flash Partitions: writing certificates to flash partitions.
+  - Manufacturing NVS (mfg_nvs): writing certificates and data to NVS.
+  - Utilities: hardware reset, AT log (SYSLOG).
 
-Conexão típica (Pico 2 → ESP32-C3-Mini-1):
-  Pico GP4  (TX)  → ESP32-C3 RX (GPIO20)
-  Pico GP5  (RX)  → ESP32-C3 TX (GPIO19)
-  Pico GP6  (OUT) → ESP32-C3 EN  (reset por hardware)
-  GND             → GND
-  3.3 V           → 3.3 V
+Typical connection (Pico 2 -> ESP32-C3-Mini-1):
+  Pico GP4  (TX)  -> ESP32-C3 RX (GPIO20)
+  Pico GP5  (RX)  -> ESP32-C3 TX (GPIO19)
+  Pico GP6  (OUT) -> ESP32-C3 EN  (hardware reset)
+  GND             -> GND
+  3.3 V           -> 3.3 V
 
-Exemplo de uso básico (WiFi + MQTT):
+Basic usage example (WiFi + MQTT):
 
     from esp32c3_at import ESP32C3_AT
 
     esp = ESP32C3_AT(uart_id=1, tx=4, rx=5, reset_pin=6)
-    esp.connect_wifi("MinhaRede", "MinhaSenha")
+    esp.connect_wifi("MyNetwork", "MyPassword")
     esp.sntp_config()
     esp.mqtt_user_cfg("pico-client", scheme=5)
     esp.mqtt_connect("xxxxxxxx.iot.us-east-1.amazonaws.com", port=8883)
-    esp.mqtt_pub("topico/teste", "hello")
+    esp.mqtt_pub("topic/test", "hello")
     esp.mqtt_clean()
 
-Referências:
+References:
   - ESP-AT Command Set: https://docs.espressif.com/projects/esp-at/
   - ESP32-C3-Mini-1 Datasheet: https://www.espressif.com/
 """
@@ -44,33 +44,33 @@ import time
 
 class ESP32C3_AT:
     """
-    Driver para o módulo ESP32-C3-Mini-1 utilizando o firmware ESP-AT.
+    Driver for the ESP32-C3-Mini-1 module using the ESP-AT firmware.
 
-    Toda a comunicação é feita via UART, enviando comandos AT e recebendo
-    as respostas correspondentes. O módulo é reiniciado por hardware durante
-    a inicialização para garantir um estado limpo e conhecido.
+    All communication is done via UART, sending AT commands and receiving
+    the corresponding responses. The module is hardware-reset during
+    initialization to ensure a clean and known state.
 
     Attributes:
-        uart (machine.UART): Instância UART configurada para comunicação AT.
-        reset (machine.Pin): Pino de reset (EN) do ESP32-C3 (ativo em nível baixo).
+        uart (machine.UART): UART instance configured for AT communication.
+        reset (machine.Pin): ESP32-C3 reset pin (EN) (active low).
     """
 
     def __init__(self, uart_id: int = 1, tx: int = 4, rx: int = 5,
                  reset_pin: int = 6, baudrate: int = 115200):
         """
-        Inicializa a UART e aplica um reset por hardware no ESP32-C3.
+        Initializes the UART and applies a hardware reset to the ESP32-C3.
 
         Args:
-            uart_id   (int): ID do periférico UART do Pico (0 ou 1). Padrão: 1.
-            tx        (int): Número do pino GP usado como TX. Padrão: GP4.
-            rx        (int): Número do pino GP usado como RX. Padrão: GP5.
-            reset_pin (int): Número do pino GP ligado ao pino EN do módulo.
-                             Padrão: GP6.
-            baudrate  (int): Taxa de comunicação UART em bps. Padrão: 115200.
+            uart_id   (int): Pico UART peripheral ID (0 or 1). Default: 1.
+            tx        (int): GP pin number used as TX. Default: GP4.
+            rx        (int): GP pin number used as RX. Default: GP5.
+            reset_pin (int): GP pin number connected to the module's EN pin.
+                             Default: GP6.
+            baudrate  (int): UART communication rate in bps. Default: 115200.
 
         Raises:
-            Exception: Propagada pelo MicroPython se os pinos forem inválidos
-                       para o UART escolhido.
+            Exception: Propagated by MicroPython if the pins are invalid
+                       for the chosen UART.
         """
         self.uart = machine.UART(uart_id, baudrate=baudrate,
                                  tx=machine.Pin(tx), rx=machine.Pin(rx))
@@ -80,40 +80,40 @@ class ESP32C3_AT:
 
     def _hw_reset(self):
         """
-        Reinicia o ESP32-C3 por hardware via pino EN e aguarda a mensagem 'ready'.
+        Resets the ESP32-C3 via hardware through the EN pin and waits for the 'ready' message.
 
-        Coloca o pino EN em nível baixo por 100 ms e depois em nível alto,
-        aguardando até 5 segundos pelo boot completo do firmware ESP-AT.
-        Chamado automaticamente pelo construtor.
+        Drives the EN pin low for 100 ms then high again,
+        waiting up to 5 seconds for the ESP-AT firmware to fully boot.
+        Called automatically by the constructor.
         """
-        print("Resetando ESP32-C3 via hardware...")
+        print("Resetting ESP32-C3 via hardware...")
         self.reset.value(0)
         time.sleep_ms(100)
         self.reset.value(1)
-        # Aguardar boot completo (esperar "ready")
+        # Wait for full boot (wait for "ready")
         resp = self._wait_response(5000, "ready")
         print("Boot:", resp.strip())
 
     def send_cmd(self, cmd: str, timeout: int = 2000, expected: str = "OK") -> str:
         """
-        Envia um comando AT e retorna a resposta completa do módulo.
+        Sends an AT command and returns the full module response.
 
-        Limpa o buffer UART antes de enviar para evitar contaminação por
-        dados residuais de comandos anteriores.
+        Clears the UART buffer before sending to avoid contamination from
+        residual data of previous commands.
 
         Args:
-            cmd      (str): Comando AT sem terminador (ex.: ``'AT+GMR'``).
-            timeout  (int): Tempo máximo de espera pela resposta em ms.
-                            Padrão: 2000 ms.
-            expected (str): Substring que indica o fim bem-sucedido da resposta.
-                            A espera também termina se ``'ERROR'`` for recebido.
-                            Padrão: ``'OK'``.
+            cmd      (str): AT command without terminator (e.g., ``'AT+GMR'``).
+            timeout  (int): Maximum wait time for the response in ms.
+                            Default: 2000 ms.
+            expected (str): Substring indicating the successful end of the response.
+                            The wait also ends if ``'ERROR'`` is received.
+                            Default: ``'OK'``.
 
         Returns:
-            str: Resposta completa recebida do módulo (pode conter múltiplas
-                 linhas). Decodificada como UTF-8 com substituição de erros.
+            str: Full response received from the module (may contain multiple
+                 lines). Decoded as UTF-8 with error replacement.
         """
-        # Limpar buffer antes de enviar
+        # Clear buffer before sending
         while self.uart.any():
             self.uart.read()
         self.uart.write((cmd + "\r\n").encode())
@@ -121,19 +121,19 @@ class ESP32C3_AT:
 
     def _wait_response(self, timeout: int, expected: str) -> str:
         """
-        Aguarda e acumula a resposta UART até receber o token esperado ou atingir timeout.
+        Waits and accumulates the UART response until the expected token is received or timeout.
 
-        Realiza polling a cada 10 ms consumindo todos os bytes disponíveis no
-        buffer UART. A leitura é encerrada antecipadamente caso ``expected`` ou
-        ``'ERROR'`` sejam encontrados na resposta acumulada.
+        Polls every 10 ms consuming all available bytes from the UART buffer.
+        Reading is terminated early if ``expected`` or ``'ERROR'`` are found
+        in the accumulated response.
 
         Args:
-            timeout  (int): Tempo máximo de espera em milissegundos.
-            expected (str): Substring que sinaliza fim da resposta válida.
+            timeout  (int): Maximum wait time in milliseconds.
+            expected (str): Substring signaling the end of a valid response.
 
         Returns:
-            str: Resposta acumulada decodificada como UTF-8 (erros substituídos
-                 por ``U+FFFD``). Pode estar incompleta se ocorrer timeout.
+            str: Accumulated response decoded as UTF-8 (errors replaced
+                 with ``U+FFFD``). May be incomplete if timeout occurs.
         """
         start = time.ticks_ms()
         response = b""
@@ -154,19 +154,19 @@ class ESP32C3_AT:
 
     def connect_wifi(self, ssid: str, password: str) -> str:
         """
-        Conecta o ESP32-C3 a uma rede WiFi no modo Station (STA).
+        Connects the ESP32-C3 to a WiFi network in Station (STA) mode.
 
-        Define o modo WiFi como Station (``AT+CWMODE=1``) e então inicia
-        a associação ao AP informado (``AT+CWJAP``). Aguarda até 20 segundos
-        pela confirmação ``WIFI GOT IP``.
+        Sets the WiFi mode to Station (``AT+CWMODE=1``) and then initiates
+        association with the specified AP (``AT+CWJAP``). Waits up to 20 seconds
+        for ``WIFI GOT IP`` confirmation.
 
         Args:
-            ssid     (str): Nome da rede WiFi (SSID).
-            password (str): Senha da rede WiFi.
+            ssid     (str): WiFi network name (SSID).
+            password (str): WiFi network password.
 
         Returns:
-            str: Resposta AT completa. Contém ``'WIFI GOT IP'`` em caso de
-                 sucesso ou ``'ERROR'`` / timeout em caso de falha.
+            str: Full AT response. Contains ``'WIFI GOT IP'`` on success
+                 or ``'ERROR'`` / timeout on failure.
         """
         self.send_cmd("AT+CWMODE=1")
         time.sleep_ms(500)
@@ -176,56 +176,56 @@ class ESP32C3_AT:
 
     def get_ip(self) -> str:
         """
-        Retorna as informações de IP da interface WiFi do módulo.
+        Returns the IP information of the module's WiFi interface.
 
-        Usa o comando ``AT+CIFSR`` que retorna o IP local (STAIP)
-        e o endereço MAC (STAMAC).
+        Uses the ``AT+CIFSR`` command which returns the local IP (STAIP)
+        and the MAC address (STAMAC).
 
         Returns:
-            str: Resposta AT com IP e MAC do módulo.
+            str: AT response with the module's IP and MAC.
         """
         return self.send_cmd("AT+CIFSR")
 
     def http_get(self, host: str, path: str = "/", port: int = 80) -> str:
         """
-        Realiza uma requisição HTTP GET simples sobre TCP.
+        Performs a simple HTTP GET request over TCP.
 
-        Abre uma conexão TCP com o servidor, envia a requisição HTTP 1.1
-        e aguarda o fechamento da conexão pelo servidor (``CLOSED``).
-        Utiliza o modo de transmissão normal (``AT+CIPMODE=0``).
+        Opens a TCP connection to the server, sends the HTTP 1.1 request
+        and waits for the server to close the connection (``CLOSED``).
+        Uses normal transmission mode (``AT+CIPMODE=0``).
 
         Args:
-            host (str): Nome de host ou endereço IP do servidor (ex.: ``'example.com'``).
-            path (str): Caminho do recurso HTTP (ex.: ``'/api/data'``). Padrão: ``'/'``.
-            port (int): Porta TCP do servidor. Padrão: ``80``.
+            host (str): Server hostname or IP address (e.g., ``'example.com'``).
+            path (str): HTTP resource path (e.g., ``'/api/data'``). Default: ``'/'``.
+            port (int): Server TCP port. Default: ``80``.
 
         Returns:
-            str: Resposta completa recebida, incluindo cabeçalhos e corpo HTTP,
-                 ou a resposta de erro AT se a conexão falhar.
+            str: Full response received, including HTTP headers and body,
+                 or the AT error response if the connection fails.
         """
         self.send_cmd("AT+CIPMODE=0")
         time.sleep_ms(200)
         resp = self.send_cmd(f'AT+CIPSTART="TCP","{host}",{port}',
                              timeout=10000, expected="CONNECT")
         if "ERROR" in resp:
-            print("Erro ao conectar TCP:", resp)
+            print("Error connecting TCP:", resp)
             return resp
 
         req = f"GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n"
         self.send_cmd(f"AT+CIPSEND={len(req)}", timeout=3000, expected=">")
         time.sleep_ms(200)
-        # Enviar o corpo da requisição (sem \r\n extra)
+        # Send the request body (no extra \r\n)
         self.uart.write(req.encode())
         return self._wait_response(10000, "CLOSED")
 
     def disconnect_wifi(self) -> str:
         """
-        Desconecta o ESP32-C3 da rede WiFi atual.
+        Disconnects the ESP32-C3 from the current WiFi network.
 
-        Envia ``AT+CWQAP`` para encerrar a associação com o AP.
+        Sends ``AT+CWQAP`` to terminate the AP association.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd("AT+CWQAP")
 
@@ -235,35 +235,35 @@ class ESP32C3_AT:
                       password: str = "", cert_key_id: int = 0,
                       ca_id: int = 0, path: str = "") -> str:
         """
-        Configura as credenciais e o esquema de segurança do cliente MQTT (``AT+MQTTUSERCFG``).
+        Configures the MQTT client credentials and security scheme (``AT+MQTTUSERCFG``).
 
-        Deve ser chamado antes de :meth:`mqtt_connect`. Para TLS com ALPN/SNI
-        (AWS IoT Core), chame :meth:`mqtt_sni` e :meth:`mqtt_alpn` **após** este método.
+        Must be called before :meth:`mqtt_connect`. For TLS with ALPN/SNI
+        (AWS IoT Core), call :meth:`mqtt_sni` and :meth:`mqtt_alpn` **after** this method.
 
         Args:
-            client_id   (str): Identificador único do cliente MQTT.
-            scheme      (int): Esquema de segurança / transporte:
+            client_id   (str): Unique MQTT client identifier.
+            scheme      (int): Security / transport scheme:
 
-                * ``1`` – TCP sem criptografia.
-                * ``2`` – TLS sem verificação de certificado.
-                * ``3`` – TLS com verificação do certificado do servidor.
-                * ``4`` – TLS com certificado de cliente.
-                * ``5`` – TLS mútuo (cliente + servidor). Usar para AWS IoT Core.
-                * ``6`` – WebSocket.
-                * ``7`` – WebSocket Secure (WSS).
+                * ``1`` -- TCP without encryption.
+                * ``2`` -- TLS without certificate verification.
+                * ``3`` -- TLS with server certificate verification.
+                * ``4`` -- TLS with client certificate.
+                * ``5`` -- Mutual TLS (client + server). Use for AWS IoT Core.
+                * ``6`` -- WebSocket.
+                * ``7`` -- WebSocket Secure (WSS).
 
-                Padrão: ``1``.
-            username    (str): Nome de usuário MQTT. Padrão: ``''``.
-            password    (str): Senha MQTT. Padrão: ``''``.
-            cert_key_id (int): Índice do par de certificados PKI de cliente
-                               armazenado na flash. Padrão: ``0``.
-            ca_id       (int): Índice do certificado CA armazenado na flash.
-                               Padrão: ``0``.
-            path        (str): Caminho customizado de autenticação (raramente usado).
-                               Padrão: ``''``.
+                Default: ``1``.
+            username    (str): MQTT username. Default: ``''``.
+            password    (str): MQTT password. Default: ``''``.
+            cert_key_id (int): PKI client certificate pair index
+                               stored in flash. Default: ``0``.
+            ca_id       (int): CA certificate index stored in flash.
+                               Default: ``0``.
+            path        (str): Custom authentication path (rarely used).
+                               Default: ``''``.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd(
             f'AT+MQTTUSERCFG=0,{scheme},"{client_id}","{username}","{password}",{cert_key_id},{ca_id},"{path}"',
@@ -274,25 +274,25 @@ class ESP32C3_AT:
                       lwt_topic: str = "", lwt_msg: str = "",
                       lwt_qos: int = 0, lwt_retain: int = 0) -> str:
         """
-        Configura parâmetros de conexão MQTT: keepalive, sessão limpa e LWT (``AT+MQTTCONNCFG``).
+        Configures MQTT connection parameters: keepalive, clean session and LWT (``AT+MQTTCONNCFG``).
 
-        Deve ser chamado antes de :meth:`mqtt_connect`.
+        Must be called before :meth:`mqtt_connect`.
 
         Args:
-            keepalive     (int): Intervalo de keepalive em segundos (0 desabilita).
-                                 Padrão: ``120``.
-            disable_clean (int): ``0`` = sessão limpa a cada conexão (clean session).
-                                 ``1`` = mantém a sessão persistente.
-                                 Padrão: ``0``.
-            lwt_topic     (str): Tópico da mensagem LWT (Last Will and Testament).
-                                 Deixe vazio para desabilitar. Padrão: ``''``.
-            lwt_msg       (str): Conteúdo da mensagem LWT. Padrão: ``''``.
-            lwt_qos       (int): QoS da mensagem LWT (0, 1 ou 2). Padrão: ``0``.
-            lwt_retain    (int): ``1`` para marcar a mensagem LWT como retained.
-                                 Padrão: ``0``.
+            keepalive     (int): Keepalive interval in seconds (0 disables it).
+                                 Default: ``120``.
+            disable_clean (int): ``0`` = clean session on each connection.
+                                 ``1`` = persistent session.
+                                 Default: ``0``.
+            lwt_topic     (str): LWT (Last Will and Testament) message topic.
+                                 Leave empty to disable. Default: ``''``.
+            lwt_msg       (str): LWT message content. Default: ``''``.
+            lwt_qos       (int): LWT message QoS (0, 1 or 2). Default: ``0``.
+            lwt_retain    (int): ``1`` to mark the LWT message as retained.
+                                 Default: ``0``.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd(
             f'AT+MQTTCONNCFG=0,{keepalive},{disable_clean},"{lwt_topic}","{lwt_msg}",{lwt_qos},{lwt_retain}',
@@ -301,24 +301,24 @@ class ESP32C3_AT:
 
     def mqtt_connect(self, host: str, port: int = 1883, reconnect: int = 0) -> str:
         """
-        Conecta ao broker MQTT (``AT+MQTTCONN``).
+        Connects to the MQTT broker (``AT+MQTTCONN``).
 
-        Deve ser chamado após :meth:`mqtt_user_cfg` e, opcionalmente,
-        após :meth:`mqtt_conn_cfg`, :meth:`mqtt_sni` e :meth:`mqtt_alpn`.
+        Must be called after :meth:`mqtt_user_cfg` and, optionally,
+        after :meth:`mqtt_conn_cfg`, :meth:`mqtt_sni` and :meth:`mqtt_alpn`.
 
         Args:
-            host      (str): Endereço do broker MQTT (hostname ou IP).
-                             Exemplo para AWS IoT Core:
+            host      (str): MQTT broker address (hostname or IP).
+                             Example for AWS IoT Core:
                              ``'xxxxxxxx-ats.iot.us-east-1.amazonaws.com'``.
-            port      (int): Porta TCP do broker.
-                             Padrão: ``1883`` (sem TLS).
-                             Use ``8883`` para MQTT sobre TLS ou ``443`` com ALPN.
-            reconnect (int): ``0`` – sem reconexão automática.
-                             ``1`` – o módulo reconecta automaticamente se perder
-                             a conexão. Padrão: ``0``.
+            port      (int): Broker TCP port.
+                             Default: ``1883`` (no TLS).
+                             Use ``8883`` for MQTT over TLS or ``443`` with ALPN.
+            reconnect (int): ``0`` -- no automatic reconnection.
+                             ``1`` -- the module reconnects automatically if the
+                             connection is lost. Default: ``0``.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso, ou erro).
+            str: AT response (``'OK'`` on success, or error).
         """
         return self.send_cmd(
             f'AT+MQTTCONN=0,"{host}",{port},{reconnect}',
@@ -327,22 +327,22 @@ class ESP32C3_AT:
 
     def mqtt_pub(self, topic: str, data: str, qos: int = 0, retain: int = 0) -> str:
         """
-        Publica uma mensagem de texto em um tópico MQTT (``AT+MQTTPUB``).
+        Publishes a text message to an MQTT topic (``AT+MQTTPUB``).
 
-        Para payloads binários ou dados que contenham caracteres especiais /
-        aspas, utilize :meth:`mqtt_pub_raw`.
+        For binary payloads or data containing special characters /
+        quotes, use :meth:`mqtt_pub_raw`.
 
         Args:
-            topic  (str): Tópico MQTT de destino (ex.: ``'dispositivo/sensor'``).
-            data   (str): Conteúdo da mensagem (somente texto, sem aspas duplas).
-            qos    (int): Nível de QoS: ``0`` (no máximo uma vez),
-                          ``1`` (pelo menos uma vez), ``2`` (exatamente uma vez).
-                          Padrão: ``0``.
-            retain (int): ``1`` para que o broker retenha a mensagem para novos
-                          subscribers. Padrão: ``0``.
+            topic  (str): Destination MQTT topic (e.g., ``'device/sensor'``).
+            data   (str): Message content (text only, no double quotes).
+            qos    (int): QoS level: ``0`` (at most once),
+                          ``1`` (at least once), ``2`` (exactly once).
+                          Default: ``0``.
+            retain (int): ``1`` for the broker to retain the message for new
+                          subscribers. Default: ``0``.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd(
             f'AT+MQTTPUB=0,"{topic}","{data}",{qos},{retain}',
@@ -351,23 +351,23 @@ class ESP32C3_AT:
 
     def mqtt_pub_raw(self, topic: str, payload, qos: int = 0, retain: int = 0) -> str:
         """
-        Publica dados binários em um tópico MQTT (``AT+MQTTPUBRAW``).
+        Publishes binary data to an MQTT topic (``AT+MQTTPUBRAW``).
 
-        Diferente de :meth:`mqtt_pub`, aceita qualquer sequência de bytes,
-        incluindo dados com aspas, zeros e caracteres de controle.
-        O módulo emite o prompt ``'>'`` para indicar que está pronto para
-        receber o payload; os bytes são então enviados diretamente pela UART.
+        Unlike :meth:`mqtt_pub`, accepts any byte sequence,
+        including data with quotes, null bytes and control characters.
+        The module emits the ``'>'`` prompt to indicate it is ready to
+        receive the payload; the bytes are then sent directly over UART.
 
         Args:
-            topic   (str): Tópico MQTT de destino.
-            payload (bytes | bytearray | str): Dados a serem publicados.
-                    Strings são automaticamente codificadas como UTF-8.
-            qos     (int): Nível de QoS (0, 1 ou 2). Padrão: ``0``.
-            retain  (int): ``1`` para reter a mensagem no broker. Padrão: ``0``.
+            topic   (str): Destination MQTT topic.
+            payload (bytes | bytearray | str): Data to be published.
+                    Strings are automatically encoded as UTF-8.
+            qos     (int): QoS level (0, 1 or 2). Default: ``0``.
+            retain  (int): ``1`` to retain the message on the broker. Default: ``0``.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso). Retorna a resposta
-                 parcial caso o prompt ``'>'`` não seja recebido.
+            str: AT response (``'OK'`` on success). Returns the partial
+                 response if the ``'>'`` prompt is not received.
         """
         raw = payload if isinstance(payload, (bytes, bytearray)) else payload.encode()
         cmd = f'AT+MQTTPUBRAW=0,"{topic}",{len(raw)},{qos},{retain}'
@@ -382,19 +382,19 @@ class ESP32C3_AT:
 
     def mqtt_sub(self, topic: str, qos: int = 0) -> str:
         """
-        Inscreve o cliente em um tópico MQTT (``AT+MQTTSUB``).
+        Subscribes the client to an MQTT topic (``AT+MQTTSUB``).
 
-        Após a inscrição, mensagens recebidas nesse tópico são retornadas
-        pela UART no formato: ``+MQTTSUBRECV:0,"<topic>",<len>,<data>``.
-        Para recebê-las, monitore a UART (ex.: via :meth:`_wait_response`).
+        After subscribing, messages received on this topic are returned
+        via UART in the format: ``+MQTTSUBRECV:0,"<topic>",<len>,<data>``.
+        To receive them, monitor the UART (e.g., via :meth:`_wait_response`).
 
         Args:
-            topic (str): Tópico a assinar (suporta wildcards ``'+'`` e ``'#'``).
-            qos   (int): QoS máximo solicitado para as mensagens recebidas
-                         (0, 1 ou 2). Padrão: ``0``.
+            topic (str): Topic to subscribe to (supports ``'+'`` and ``'#'`` wildcards).
+            qos   (int): Maximum QoS requested for received messages
+                         (0, 1 or 2). Default: ``0``.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd(
             f'AT+MQTTSUB=0,"{topic}",{qos}',
@@ -403,55 +403,55 @@ class ESP32C3_AT:
 
     def mqtt_unsub(self, topic: str) -> str:
         """
-        Cancela a inscrição do cliente em um tópico MQTT (``AT+MQTTUNSUB``).
+        Unsubscribes the client from an MQTT topic (``AT+MQTTUNSUB``).
 
         Args:
-            topic (str): Tópico do qual se deseja cancelar a inscrição.
+            topic (str): Topic to unsubscribe from.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd(f'AT+MQTTUNSUB=0,"{topic}"', timeout=3000)
 
     def mqtt_clean(self) -> str:
         """
-        Encerra a conexão MQTT e libera todos os recursos alocados (``AT+MQTTCLEAN``).
+        Closes the MQTT connection and releases all allocated resources (``AT+MQTTCLEAN``).
 
-        Deve ser chamado ao finalizar o uso do MQTT para garantir uma
-        desconexão limpa do broker.
+        Should be called when done using MQTT to ensure a clean
+        disconnection from the broker.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd("AT+MQTTCLEAN=0", timeout=5000)
 
     def mqtt_state(self) -> str:
         """
-        Consulta o estado atual da conexão MQTT (``AT+MQTTCONN?``).
+        Queries the current MQTT connection state (``AT+MQTTCONN?``).
 
-        Útil para verificar se o cliente ainda está conectado ao broker
-        sem tentar uma nova conexão.
+        Useful for checking if the client is still connected to the broker
+        without attempting a new connection.
 
         Returns:
-            str: Resposta AT contendo o estado da conexão. O campo de estado
-                 pode ser: ``0`` desconectado, ``1`` conectado, etc.
+            str: AT response containing the connection state. The state field
+                 can be: ``0`` disconnected, ``1`` connected, etc.
         """
         return self.send_cmd("AT+MQTTCONN?", timeout=3000)
 
     def mqtt_sni(self, sni: str) -> str:
         """
-        Define o SNI (Server Name Indication) para conexões MQTT sobre TLS (``AT+MQTTSNI``).
+        Sets the SNI (Server Name Indication) for MQTT over TLS connections (``AT+MQTTSNI``).
 
-        Obrigatório para conexões ao AWS IoT Core, pois o broker valida o
-        hostname pelo SNI. **Deve ser chamado após** :meth:`mqtt_user_cfg`.
+        Required for AWS IoT Core connections, as the broker validates the
+        hostname via SNI. **Must be called after** :meth:`mqtt_user_cfg`.
 
         Args:
-            sni (str): Hostname do broker que será enviado na extensão TLS SNI.
-                       Geralmente igual ao ``host`` passado em :meth:`mqtt_connect`.
-                       Exemplo: ``'xxxxxxxx-ats.iot.us-east-1.amazonaws.com'``.
+            sni (str): Broker hostname to be sent in the TLS SNI extension.
+                       Usually the same as the ``host`` passed to :meth:`mqtt_connect`.
+                       Example: ``'xxxxxxxx-ats.iot.us-east-1.amazonaws.com'``.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd(
             f'AT+MQTTSNI=0,"{sni}"',
@@ -460,19 +460,19 @@ class ESP32C3_AT:
 
     def mqtt_alpn(self, *alpns: str) -> str:
         """
-        Define os protocolos ALPN (Application-Layer Protocol Negotiation) para MQTT/TLS (``AT+MQTTALPN``).
+        Sets the ALPN (Application-Layer Protocol Negotiation) protocols for MQTT/TLS (``AT+MQTTALPN``).
 
-        Necessário ao conectar ao AWS IoT Core pela porta 443 com ALPN
-        ``'x-amzn-mqtt-ca'``. **Deve ser chamado após** :meth:`mqtt_user_cfg`.
-        Chamar sem argumentos desabilita o ALPN.
+        Required when connecting to AWS IoT Core on port 443 with ALPN
+        ``'x-amzn-mqtt-ca'``. **Must be called after** :meth:`mqtt_user_cfg`.
+        Calling without arguments disables ALPN.
 
         Args:
-            *alpns (str): Um ou mais identificadores de protocolo ALPN.
-                          Exemplo: ``mqtt_alpn('x-amzn-mqtt-ca')``.
-                          Sem argumentos: desabilita ALPN (``AT+MQTTALPN=0,0``).
+            *alpns (str): One or more ALPN protocol identifiers.
+                          Example: ``mqtt_alpn('x-amzn-mqtt-ca')``.
+                          No arguments: disables ALPN (``AT+MQTTALPN=0,0``).
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         if not alpns:
             return self.send_cmd("AT+MQTTALPN=0,0", timeout=3000)
@@ -488,27 +488,27 @@ class ESP32C3_AT:
                     server1: str = "pool.ntp.org",
                     server2: str = "time.nist.gov") -> str:
         """
-        Configura a sincronização de horário via SNTP (``AT+CIPSNTPCFG``).
+        Configures time synchronization via SNTP (``AT+CIPSNTPCFG``).
 
-        **Necessário para conexões TLS**, pois o módulo valida a data de
-        validade dos certificados. Deve ser chamado após :meth:`connect_wifi`
-        e antes de :meth:`mqtt_connect` com TLS.
+        **Required for TLS connections**, as the module validates the
+        certificate expiration date. Should be called after :meth:`connect_wifi`
+        and before :meth:`mqtt_connect` with TLS.
 
-        Após chamar este método, aguarde alguns segundos para que a
-        sincronização ocorra (verifique com :meth:`sntp_time`).
+        After calling this method, wait a few seconds for the
+        synchronization to complete (check with :meth:`sntp_time`).
 
         Args:
-            enable   (int): ``1`` para ativar SNTP, ``0`` para desativar.
-                            Padrão: ``1``.
-            timezone (int): Fuso horário em horas em relação ao UTC.
-                            Ex.: ``-3`` para BRT (Brasília). Padrão: ``0`` (UTC).
-            server1  (str): Endereço do servidor NTP primário.
-                            Padrão: ``'pool.ntp.org'``.
-            server2  (str): Endereço do servidor NTP secundário.
-                            Padrão: ``'time.nist.gov'``.
+            enable   (int): ``1`` to enable SNTP, ``0`` to disable.
+                            Default: ``1``.
+            timezone (int): Timezone offset in hours from UTC.
+                            E.g., ``-3`` for BRT (Brasilia). Default: ``0`` (UTC).
+            server1  (str): Primary NTP server address.
+                            Default: ``'pool.ntp.org'``.
+            server2  (str): Secondary NTP server address.
+                            Default: ``'time.nist.gov'``.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd(
             f'AT+CIPSNTPCFG={enable},{timezone},"{server1}","{server2}"',
@@ -517,12 +517,12 @@ class ESP32C3_AT:
 
     def sntp_time(self) -> str:
         """
-        Consulta a hora atual sincronizada via SNTP (``AT+CIPSNTPTIME?``).
+        Queries the current time synchronized via SNTP (``AT+CIPSNTPTIME?``).
 
         Returns:
-            str: Resposta AT com a data/hora atual no formato
+            str: AT response with the current date/time in the format
                  ``+CIPSNTPTIME:<weekday> <month> <day> <HH:MM:SS> <year>``.
-                 Retorna uma data inválida se o SNTP ainda não sincronizou.
+                 Returns an invalid date if SNTP has not yet synchronized.
         """
         return self.send_cmd("AT+CIPSNTPTIME?", timeout=3000)
 
@@ -530,48 +530,48 @@ class ESP32C3_AT:
 
     def enable_syslog(self) -> str:
         """
-        Habilita o log AT detalhado do módulo (``AT+SYSLOG=1``).
+        Enables the module's detailed AT log (``AT+SYSLOG=1``).
 
-        Quando ativado, o firmware ESP-AT passa a retornar códigos de erro
-        numéricos adicionais nas respostas, úteis para depurar falhas de
-        TLS e MQTT (ex.: ``ERR CODE:0x010a0004``).
+        When enabled, the ESP-AT firmware returns additional numeric error
+        codes in the responses, useful for debugging TLS and MQTT failures
+        (e.g., ``ERR CODE:0x010a0004``).
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd("AT+SYSLOG=1", timeout=1000)
 
-    # ─────────── Manufacturing NVS (certificados) ───────────
+    # ─────────── Manufacturing NVS (certificates) ───────────
 
     def sysmfg_list(self) -> str:
         """
-        Lista os namespaces disponíveis na partição ``mfg_nvs`` (``AT+SYSMFG?``).
+        Lists the available namespaces in the ``mfg_nvs`` partition (``AT+SYSMFG?``).
 
-        A partição ``mfg_nvs`` armazena certificados e outros dados de
-        fabricação de forma persistente na flash do ESP32-C3.
+        The ``mfg_nvs`` partition stores certificates and other manufacturing
+        data persistently in the ESP32-C3 flash.
 
         Returns:
-            str: Resposta AT com a lista de namespaces presentes.
+            str: AT response with the list of present namespaces.
         """
         return self.send_cmd("AT+SYSMFG?", timeout=2000)
 
     def sysmfg_erase(self, namespace: str, key: str = " ") -> bool:
         """
-        Apaga dados da partição ``mfg_nvs`` (operação 0 de ``AT+SYSMFG``).
+        Erases data from the ``mfg_nvs`` partition (operation 0 of ``AT+SYSMFG``).
 
-        Útil para remover certificados antigos antes de gravar novos com
+        Useful for removing old certificates before writing new ones with
         :meth:`sysmfg_write`.
 
         Args:
-            namespace (str): Nome do namespace NVS a apagar
-                             (ex.: ``'mqtt_key'``, ``'mqtt_cert'``, ``'mqtt_ca'``).
-            key       (str): Nome da chave dentro do namespace.
-                             ``None`` para apagar todas as chaves do namespace.
-                             Padrão: ``None``.
+            namespace (str): NVS namespace name to erase
+                             (e.g., ``'mqtt_key'``, ``'mqtt_cert'``, ``'mqtt_ca'``).
+            key       (str): Key name within the namespace.
+                             ``None`` to erase all keys in the namespace.
+                             Default: ``None``.
 
         Returns:
-            bool: ``True`` se a operação foi bem-sucedida ou se o dado já não
-                  existia; ``False`` em caso de erro AT.
+            bool: ``True`` if the operation succeeded or if the data already
+                  did not exist; ``False`` on AT error.
         """
         if key:
             resp = self.send_cmd(
@@ -584,32 +584,32 @@ class ESP32C3_AT:
     def sysmfg_write(self, namespace: str, key: str, data: bytes,
                      nvs_type: int = 8) -> bool:
         """
-        Grava dados na partição ``mfg_nvs`` (operação 2 de ``AT+SYSMFG``).
+        Writes data to the ``mfg_nvs`` partition (operation 2 of ``AT+SYSMFG``).
 
-        O módulo emite o prompt ``'>'`` para sinalizar que está pronto para
-        receber os dados, que são então enviados em blocos de 64 bytes para
-        não saturar o buffer UART.
+        The module emits the ``'>'`` prompt to signal it is ready to
+        receive the data, which is then sent in 64-byte chunks to
+        avoid saturating the UART buffer.
 
         Args:
-            namespace (str):   Nome do namespace NVS de destino
-                               (ex.: ``'mqtt_ca'``, ``'mqtt_cert'``, ``'mqtt_key'``).
-            key       (str):   Nome da chave dentro do namespace
-                               (ex.: ``'ca_der'``, ``'cert_der'``, ``'key_der'``).
-            data      (bytes): Dados a serem gravados (ex.: conteúdo de um
-                               arquivo ``.der``).
-            nvs_type  (int):   Tipo NVS do valor:
+            namespace (str):   Destination NVS namespace name
+                               (e.g., ``'mqtt_ca'``, ``'mqtt_cert'``, ``'mqtt_key'``).
+            key       (str):   Key name within the namespace
+                               (e.g., ``'ca_der'``, ``'cert_der'``, ``'key_der'``).
+            data      (bytes): Data to be written (e.g., contents of a
+                               ``.der`` file).
+            nvs_type  (int):   NVS value type:
 
-                               * ``1``–``6`` – Inteiros (U8, I8, U16, I16, U32, I32).
-                               * ``7`` – String terminada em ``\\0``.
-                               * ``8`` – Blob binário (padrão, usado para certs).
+                               * ``1``-``6`` -- Integers (U8, I8, U16, I16, U32, I32).
+                               * ``7`` -- Null-terminated string.
+                               * ``8`` -- Binary blob (default, used for certs).
 
         Returns:
-            bool: ``True`` se a gravação foi confirmada com ``'OK'``;
-                  ``False`` se ocorrer timeout ou erro.
+            bool: ``True`` if the write was confirmed with ``'OK'``;
+                  ``False`` on timeout or error.
         """
 
         length = len(data)
-        # Limpa buffer UART
+        # Clear UART buffer
         time.sleep_ms(200)
         while self.uart.any():
             self.uart.read()
@@ -620,7 +620,7 @@ class ESP32C3_AT:
         cmd = f'AT+SYSMFG=2,"{namespace}","{key}",{nvs_type},{length}'
         self.uart.write((cmd + "\r\n").encode())
 
-        # Espera prompt '>'
+        # Wait for '>' prompt
         buf = b""
         t0 = time.ticks_ms()
         got_prompt = False
@@ -649,7 +649,7 @@ class ESP32C3_AT:
 
         time.sleep_ms(500)
 
-        # Espera confirmacao
+        # Wait for confirmation
         resp_buf = b""
         t0 = time.ticks_ms()
         while time.ticks_diff(time.ticks_ms(), t0) < 15000:
@@ -668,18 +668,18 @@ class ESP32C3_AT:
     def sysmfg_read(self, namespace: str, key: str,
                     offset: int = 0, length: int = 64):
         """
-        Lê dados da partição ``mfg_nvs`` (operação 1 de ``AT+SYSMFG``).
+        Reads data from the ``mfg_nvs`` partition (operation 1 of ``AT+SYSMFG``).
 
         Args:
-            namespace (str): Nome do namespace NVS.
-            key       (str): Nome da chave dentro do namespace.
-            offset    (int): Deslocamento em bytes a partir do início do dado.
-                             Padrão: ``0``.
-            length    (int): Quantidade de bytes a ler. Padrão: ``64``.
+            namespace (str): NVS namespace name.
+            key       (str): Key name within the namespace.
+            offset    (int): Byte offset from the start of the data.
+                             Default: ``0``.
+            length    (int): Number of bytes to read. Default: ``64``.
 
         Returns:
-            str | None: Resposta AT com os dados lidos em caso de sucesso;
-                        ``None`` se a chave não existir ou ocorrer erro.
+            str | None: AT response with the read data on success;
+                        ``None`` if the key does not exist or an error occurs.
         """
         resp = self.send_cmd(
             f'AT+SYSMFG=1,"{namespace}","{key}",{offset},{length}',
@@ -691,17 +691,17 @@ class ESP32C3_AT:
 
     def sysmfg_verify(self, namespace: str, key: str) -> bool:
         """
-        Verifica se uma chave existe na partição ``mfg_nvs``.
+        Checks whether a key exists in the ``mfg_nvs`` partition.
 
-        Tenta ler 1 byte da chave especificada; se retornar ``ERROR``,
-        a chave não existe ou houve falha de leitura.
+        Tries to read 1 byte from the specified key; if it returns ``ERROR``,
+        the key does not exist or there was a read failure.
 
         Args:
-            namespace (str): Nome do namespace NVS.
-            key       (str): Nome da chave a verificar.
+            namespace (str): NVS namespace name.
+            key       (str): Key name to check.
 
         Returns:
-            bool: ``True`` se a chave existir; ``False`` caso contrário.
+            bool: ``True`` if the key exists; ``False`` otherwise.
         """
         resp = self.send_cmd(
             f'AT+SYSMFG=1,"{namespace}","{key}",0,1',
@@ -713,53 +713,53 @@ class ESP32C3_AT:
 
     def sysflash_list(self) -> str:
         """
-        Lista as partições de dados disponíveis na flash (``AT+SYSFLASH?``).
+        Lists the available data partitions in the flash (``AT+SYSFLASH?``).
 
-        As partições PKI usadas pelo MQTT são: ``mqtt_ca``, ``mqtt_cert``
-        e ``mqtt_key``. Os certificados devem estar no formato DER.
+        The PKI partitions used by MQTT are: ``mqtt_ca``, ``mqtt_cert``
+        and ``mqtt_key``. Certificates must be in DER format.
 
         Returns:
-            str: Resposta AT com nomes, offsets e tamanhos das partições.
+            str: AT response with partition names, offsets and sizes.
         """
         return self.send_cmd("AT+SYSFLASH?", timeout=3000)
 
     def sysflash_write(self, partition: str, data: bytes, offset: int = 0) -> bool:
         """
-        Grava dados em uma partição da flash via ``AT+SYSFLASH``.
+        Writes data to a flash partition via ``AT+SYSFLASH``.
 
-        O módulo MQTT do ESP-AT lê os certificados PKI diretamente das
-        partições da flash (e **não** da ``mfg_nvs``). Use esta função para
-        gravar os arquivos ``.der`` nas partições corretas antes de conectar
+        The ESP-AT MQTT module reads PKI certificates directly from
+        flash partitions (and **not** from ``mfg_nvs``). Use this function to
+        write the ``.der`` files to the correct partitions before connecting
         via MQTT/TLS.
 
-        Partições PKI padrão do firmware ESP-AT:
+        Default ESP-AT firmware PKI partitions:
 
         +--------------+----------------------------------+
-        | Partição     | Conteúdo esperado                |
+        | Partition    | Expected content                 |
         +==============+==================================+
-        | ``mqtt_ca``  | Certificado CA (AmazonRootCA1)   |
+        | ``mqtt_ca``  | CA certificate (AmazonRootCA1)   |
         +--------------+----------------------------------+
-        | ``mqtt_cert``| Certificado do dispositivo       |
+        | ``mqtt_cert``| Device certificate               |
         +--------------+----------------------------------+
-        | ``mqtt_key`` | Chave privada do dispositivo     |
+        | ``mqtt_key`` | Device private key               |
         +--------------+----------------------------------+
 
-        O módulo emite o prompt ``'>'`` antes de aceitar os dados, que são
-        enviados em blocos de 64 bytes.
+        The module emits the ``'>'`` prompt before accepting data, which is
+        sent in 64-byte chunks.
 
         Args:
-            partition (str):   Nome da partição de destino (ex.: ``'mqtt_ca'``).
-            data      (bytes): Dados a gravar (arquivo ``.der`` em bytes).
-            offset    (int):   Deslocamento em bytes dentro da partição.
-                               Padrão: ``0`` (início da partição).
+            partition (str):   Destination partition name (e.g., ``'mqtt_ca'``).
+            data      (bytes): Data to write (``.der`` file bytes).
+            offset    (int):   Byte offset within the partition.
+                               Default: ``0`` (start of partition).
 
         Returns:
-            bool: ``True`` se a gravação foi confirmada com ``'OK'``;
-                  ``False`` em caso de timeout, erro ou prompt não recebido.
+            bool: ``True`` if the write was confirmed with ``'OK'``;
+                  ``False`` on timeout, error or prompt not received.
         """
 
         length = len(data)
-        # Limpa buffer UART
+        # Clear UART buffer
         time.sleep_ms(200)
         while self.uart.any():
             self.uart.read()
@@ -770,7 +770,7 @@ class ESP32C3_AT:
         cmd = f'AT+SYSFLASH=1,"{partition}",{offset},{length}'
         self.uart.write((cmd + "\r\n").encode())
 
-        # Espera prompt '>'
+        # Wait for '>' prompt
         buf = b""
         t0 = time.ticks_ms()
         got_prompt = False
@@ -783,7 +783,7 @@ class ESP32C3_AT:
                     got_prompt = True
                     break
                 if b"ERROR" in buf:
-                    print(f"  [SYSFLASH] Erro: {buf.decode('utf-8', 'replace').strip()}")
+                    print(f"  [SYSFLASH] Error: {buf.decode('utf-8', 'replace').strip()}")
                     break
             time.sleep_ms(10)
 
@@ -792,7 +792,7 @@ class ESP32C3_AT:
 
         time.sleep_ms(100)
 
-        # Envia dados em chunks
+        # Send data in chunks
         CHUNK = 64
         for i in range(0, length, CHUNK):
             self.uart.write(data[i:i+CHUNK])
@@ -800,7 +800,7 @@ class ESP32C3_AT:
 
         time.sleep_ms(500)
 
-        # Espera confirmacao
+        # Wait for confirmation
         resp_buf = b""
         t0 = time.ticks_ms()
         while time.ticks_diff(time.ticks_ms(), t0) < 15000:
@@ -821,49 +821,49 @@ class ESP32C3_AT:
 
     def ble_init(self) -> str:
         """
-        Inicializa o controlador BLE no modo Peripheral (``AT+BLEINIT=2``).
+        Initializes the BLE controller in Peripheral mode (``AT+BLEINIT=2``).
 
-        Deve ser chamado antes de qualquer outro método BLE. O modo
-        Peripheral permite que o dispositivo seja descoberto e conectado
-        por smartphones e outros dispositivos central.
+        Must be called before any other BLE method. Peripheral mode
+        allows the device to be discovered and connected by smartphones
+        and other central devices.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         # 2 = peripheral mode
         return self.send_cmd("AT+BLEINIT=2", timeout=5000)
 
     def ble_set_name(self, name: str) -> str:
         """
-        Define o nome local do dispositivo BLE (``AT+BLENAME``).
+        Sets the BLE device local name (``AT+BLENAME``).
 
-        O nome é anunciado nos pacotes de advertising e exibido ao usuário
-        durante o pareamento. Deve ser chamado antes de :meth:`ble_start_advertising`.
+        The name is advertised in advertising packets and displayed to the user
+        during pairing. Should be called before :meth:`ble_start_advertising`.
 
         Args:
-            name (str): Nome do dispositivo BLE (máx. 32 caracteres).
+            name (str): BLE device name (max 32 characters).
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd(f'AT+BLENAME="{name}"')
 
     def ble_set_adv_data(self, dev_name: str) -> str:
         """
-        Configura o payload de advertising com o nome completo do dispositivo (``AT+BLEADVDATA``).
+        Configures the advertising payload with the device's full name (``AT+BLEADVDATA``).
 
-        Constrói manualmente a estrutura AD (*Advertising Data*) usando o
-        AD Type ``0x09`` (*Complete Local Name*), compatível com todas as
-        versões do firmware ESP-AT.
+        Manually builds the AD (*Advertising Data*) structure using
+        AD Type ``0x09`` (*Complete Local Name*), compatible with all
+        ESP-AT firmware versions.
 
-        Estrutura do payload: ``[length][0x09][bytes do nome]``
+        Payload structure: ``[length][0x09][name bytes]``
 
         Args:
-            dev_name (str): Nome que será incluído no pacote de advertising.
-                            Deve corresponder ao nome definido em :meth:`ble_set_name`.
+            dev_name (str): Name to include in the advertising packet.
+                            Should match the name set in :meth:`ble_set_name`.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         name_bytes = dev_name.encode()
         # AD Structure: [length][type=0x09][name bytes]
@@ -873,25 +873,25 @@ class ESP32C3_AT:
     def ble_set_adv_param(self, min_interval: int = 160, max_interval: int = 160,
                           adv_type: int = 0) -> str:
         """
-        Configura os parâmetros do advertising BLE (``AT+BLEADVPARAM``).
+        Configures BLE advertising parameters (``AT+BLEADVPARAM``).
 
-        O ``channel_map`` é fixado em ``7``, habilitando os três canais de
-        advertising (37, 38 e 39) para máxima compatibilidade.
+        The ``channel_map`` is fixed at ``7``, enabling all three advertising
+        channels (37, 38 and 39) for maximum compatibility.
 
         Args:
-            min_interval (int): Intervalo mínimo de advertising em unidades de
-                                0,625 ms. ``160`` = 100 ms. Padrão: ``160``.
-            max_interval (int): Intervalo máximo de advertising em unidades de
-                                0,625 ms. Padrão: ``160``.
-            adv_type     (int): Tipo de advertising:
+            min_interval (int): Minimum advertising interval in units of
+                                0.625 ms. ``160`` = 100 ms. Default: ``160``.
+            max_interval (int): Maximum advertising interval in units of
+                                0.625 ms. Default: ``160``.
+            adv_type     (int): Advertising type:
 
-                                * ``0`` – *Connectable Undirected* (padrão e mais
-                                  compatível, aceita conexões de qualquer central).
-                                * ``2`` – *Scannable Undirected*.
-                                * ``3`` – *Non-connectable Undirected*.
+                                * ``0`` -- *Connectable Undirected* (default and most
+                                  compatible, accepts connections from any central).
+                                * ``2`` -- *Scannable Undirected*.
+                                * ``3`` -- *Non-connectable Undirected*.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd(
             f'AT+BLEADVPARAM={min_interval},{max_interval},{adv_type},0,7',
@@ -900,47 +900,47 @@ class ESP32C3_AT:
 
     def ble_get_addr(self) -> str:
         """
-        Retorna o endereço MAC BLE do módulo (``AT+BLEADDR?``).
+        Returns the module's BLE MAC address (``AT+BLEADDR?``).
 
         Returns:
-            str: Resposta AT contendo o endereço MAC no formato
+            str: AT response containing the MAC address in the format
                  ``+BLEADDR:<type>,<mac>``.
         """
         return self.send_cmd("AT+BLEADDR?")
 
     def ble_gatt_init(self) -> str:
         """
-        Cria e inicia o servidor GATT com os serviços padrão do firmware ESP-AT.
+        Creates and starts the GATT server with the default ESP-AT firmware services.
 
-        Executa ``AT+BLEGATTSSRVCRE`` (cria serviços) seguido de
-        ``AT+BLEGATTSSRVSTART`` (inicia serviços). Deve ser chamado após
+        Executes ``AT+BLEGATTSSRVCRE`` (creates services) followed by
+        ``AT+BLEGATTSSRVSTART`` (starts services). Must be called after
         :meth:`ble_init`.
 
-        Layout padrão dos serviços ESP-AT após ``BLEGATTSSRVCRE``:
+        Default ESP-AT service layout after ``BLEGATTSSRVCRE``:
 
         +----------+--------------------------------------+
-        | srv_idx  | UUID / Descrição                     |
+        | srv_idx  | UUID / Description                   |
         +==========+======================================+
         | 1        | ``0x1801`` Generic Attribute Service |
         +----------+--------------------------------------+
         | 2        | ``0x1800`` Generic Access Service    |
         +----------+--------------------------------------+
-        | 3        | ``0xA002`` Serviço customizado       |
+        | 3        | ``0xA002`` Custom service            |
         +----------+--------------------------------------+
 
-        Características do serviço customizado (srv_idx=3):
+        Custom service characteristics (srv_idx=3):
 
         +-----------+-----------+------------------------------------+
-        | char_idx  | UUID      | Propriedades                       |
+        | char_idx  | UUID      | Properties                         |
         +===========+===========+====================================+
-        | 3         | ``0xC302``| Write (sem resposta)               |
+        | 3         | ``0xC302``| Write (no response)                |
         +-----------+-----------+------------------------------------+
-        | 5         | ``0xC304``| Notify (usado em :meth:`ble_notify`)|
+        | 5         | ``0xC304``| Notify (used by :meth:`ble_notify`)|
         +-----------+-----------+------------------------------------+
 
         Returns:
-            str: Resposta AT do ``AT+BLEGATTSSRVSTART``
-                 (``'OK'`` em caso de sucesso).
+            str: AT response from ``AT+BLEGATTSSRVSTART``
+                 (``'OK'`` on success).
         """
         resp = self.send_cmd("AT+BLEGATTSSRVCRE", timeout=5000)
         if "ERROR" in resp:
@@ -952,24 +952,24 @@ class ESP32C3_AT:
     def ble_notify(self, conn_idx: int, srv_idx: int,
                    char_idx: int, data) -> str:
         """
-        Envia uma notificação BLE GATT ao cliente conectado (``AT+BLEGATTSNTFY``).
+        Sends a BLE GATT notification to the connected client (``AT+BLEGATTSNTFY``).
 
-        O módulo emite o prompt ``'>'`` para indicar que está pronto para
-        os dados, que são então enviados diretamente pela UART.
+        The module emits the ``'>'`` prompt to indicate it is ready for
+        the data, which is then sent directly over UART.
 
         Args:
-            conn_idx (int): Índice da conexão BLE (normalmente ``0`` para
-                            o primeiro cliente conectado).
-            srv_idx  (int): Índice do serviço GATT no servidor
-                            (ex.: ``3`` para o serviço customizado ``0xA002``).
-            char_idx (int): Índice da característica dentro do serviço
-                            (ex.: ``5`` para a característica Notify ``0xC304``).
-            data     (bytes | str): Dados a enviar via notificação. Strings
-                            são automaticamente codificadas como UTF-8.
+            conn_idx (int): BLE connection index (typically ``0`` for
+                            the first connected client).
+            srv_idx  (int): GATT service index on the server
+                            (e.g., ``3`` for the custom service ``0xA002``).
+            char_idx (int): Characteristic index within the service
+                            (e.g., ``5`` for the Notify characteristic ``0xC304``).
+            data     (bytes | str): Data to send via notification. Strings
+                            are automatically encoded as UTF-8.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso). Retorna a resposta
-                 parcial se o prompt ``'>'`` não for recebido.
+            str: AT response (``'OK'`` on success). Returns the partial
+                 response if the ``'>'`` prompt is not received.
         """
         raw = data.encode() if isinstance(data, str) else data
         cmd = f"AT+BLEGATTSNTFY={conn_idx},{srv_idx},{char_idx},{len(raw)}"
@@ -984,22 +984,22 @@ class ESP32C3_AT:
 
     def ble_start_advertising(self) -> str:
         """
-        Inicia o advertising BLE (``AT+BLEADVSTART``).
+        Starts BLE advertising (``AT+BLEADVSTART``).
 
-        Após a chamada, o dispositivo passa a anunciar sua presença para
-        que centrais possam descobri-lo e conectar-se. Configure antes
-        com :meth:`ble_set_adv_data` e :meth:`ble_set_adv_param`.
+        After calling, the device begins announcing its presence so that
+        centrals can discover and connect to it. Configure beforehand
+        with :meth:`ble_set_adv_data` and :meth:`ble_set_adv_param`.
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd("AT+BLEADVSTART", timeout=3000)
 
     def ble_stop_advertising(self) -> str:
         """
-        Interrompe o advertising BLE (``AT+BLEADVSTOP``).
+        Stops BLE advertising (``AT+BLEADVSTOP``).
 
         Returns:
-            str: Resposta AT (``'OK'`` em caso de sucesso).
+            str: AT response (``'OK'`` on success).
         """
         return self.send_cmd("AT+BLEADVSTOP")
