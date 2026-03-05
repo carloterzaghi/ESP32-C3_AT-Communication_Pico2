@@ -93,7 +93,7 @@ CERTS = [
 
 # -- Binary test payload --
 # Replace with the actual payload for your application.
-payload = b'\x80\x05\x00\xbfV\x13\x9e\xa2\x88\x00\x00@a\x19\xfa@a\x19\xfa\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00v3.0.13\x00\x00\x00\x00\x00"\xb4|i\x1e\x80'
+payload = b'Hello from Pico 2 via ESP32-C3 MQTT!'  # Example binary payload
 # ======================================================================
 #                           HELPER FUNCTIONS
 # ======================================================================
