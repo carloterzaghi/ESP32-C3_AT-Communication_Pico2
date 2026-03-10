@@ -166,3 +166,81 @@ MQTT_TOPIC     = "test/pico2"
 # Run:
 import umqtt_test
 ```
+
+---
+
+### `OTA_exemple/` -- Over-the-Air Update via HTTP
+
+Downloads updated MicroPython files from an HTTP server and applies them to
+the Pico 2 filesystem, using the ESP32-C3 as the network interface.
+
+#### Architecture
+
+```
+Pico 2 (MicroPython)
+  └─ UART1 (AT commands) ──▶ ESP32-C3 (ESP-AT firmware)
+                                 └─ HTTP GET ──▶ OTA Server (LAN / Internet)
+```
+
+#### `ota_update.py` -- Main Script
+
+**Execution flow (4 steps):**
+
+| Step | Description | Details |
+|---|---|---|
+| **1** | Module check | Verifies AT communication with the ESP32-C3 |
+| **2** | Wi-Fi | Connects to the configured network |
+| **3** | Version check | Downloads `version.json` from the server and compares with the local version stored in `ota_version` |
+| **4** | Apply update | Downloads each file listed in the manifest, saves safely (tmp + rename), updates the version marker, reboots |
+
+**Key features:**
+- **Safe writes:** each file is written to a `.ota_tmp` temporary file first, then renamed -- a failed download never corrupts an existing file.
+- **Atomic version update:** the local version marker is only updated **after** all files are successfully written. If the device reboots mid-update, the next run retries from scratch.
+- **Proper `+IPD` parsing:** extracts TCP data from the ESP-AT `+IPD,<len>:<data>` framing, supporting both standard and `CIPDINFO`-extended formats.
+
+#### `version.json` -- Version Manifest (example)
+
+Place this file on your HTTP server. Format:
+
+```json
+{
+    "version": "1.0.1",
+    "files": [
+        {"path": "main.py",           "url": "/ota/main.py"},
+        {"path": "lib/my_module.py",  "url": "/ota/lib/my_module.py"}
+    ]
+}
+```
+
+- `version` -- arbitrary version string; an update is triggered whenever it differs from the local value.
+- `files[].path` -- destination path on the Pico filesystem.
+- `files[].url` -- URL path on the OTA server.
+
+#### Quick server setup (on your PC)
+
+```bash
+# Create a folder structure matching the URL paths:
+mkdir -p ota_server/ota
+cp version.json ota_server/ota/
+cp main.py      ota_server/ota/
+
+# Start a simple HTTP server:
+cd ota_server
+python -m http.server 8080
+```
+
+Then set `OTA_HOST` to your PC's local IP (e.g., `192.168.1.100`) and
+`OTA_PORT` to `8080`.
+
+**Usage:**
+```python
+# Edit the configuration constants at the top of ota_update.py:
+WIFI_SSID        = "your_network"
+WIFI_PASSWORD    = "your_password"
+OTA_HOST         = "192.168.1.100"
+OTA_PORT         = 8080
+OTA_VERSION_PATH = "/ota/version.json"
+
+# Run:
+import ota_update
+```
